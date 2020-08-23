@@ -1,20 +1,10 @@
 BasicUpstart2(programstart)
+    *=$080e
 
-*=$080e
 programstart:
     lda #0
     sta $d020
     sta $d021
-
-    lda #32
-    ldx #0
-!:
-    sta $0400,x
-    sta $0500,x
-    sta $0600,x
-    sta $0700,x
-    inx
-    bne !-
 
     jsr init_memory
 !:

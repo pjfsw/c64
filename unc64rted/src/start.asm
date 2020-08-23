@@ -6,6 +6,17 @@
 start:
 {
     sei
+
+    lda #32
+    ldx #0
+!:
+    sta $0400,x
+    sta $0500,x
+    sta $0600,x
+    sta $0700,x
+    inx
+    bne !-
+
     ldx #0
 !:
     lda message,x
