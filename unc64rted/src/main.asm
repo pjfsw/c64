@@ -2,6 +2,20 @@ BasicUpstart2(programstart)
 
 *=$080e
 programstart:
+    lda #0
+    sta $d020
+    sta $d021
+
+    lda #32
+    ldx #0
+!:
+    sta $0400,x
+    sta $0500,x
+    sta $0600,x
+    sta $0700,x
+    inx
+    bne !-
+
     jsr init_memory
 !:
     jsr start
@@ -30,28 +44,7 @@ init_memory:
     lda #$35    // RAM $0000-$CFFF, IO $D000-$DFFF, RAM $E000-$FFFF
     sta $01
 
-    lda #<default_irq
-    sta $fffe
-    lda #>default_irq
-    sta $ffff
-
-    cli
     rts
-
-default_irq:
-{
-    sta a_temp
-    stx x_temp
-    sty y_temp
-
-    lda #$ff
-    sta $d019
-
-    lda a_temp:#0
-    ldx x_temp:#0
-    ldy y_temp:#0
-    rti
-}
 
 #import "start.asm"
 #import "game.asm"
