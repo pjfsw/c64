@@ -23,12 +23,13 @@ sidSetup:
     lda #$09 // Decay 750 ms
     sta VOICE1+5
     sta VOICE2+5
-    lda #$0a
+    lda #$1a
     sta VOICE3+5
-    lda #$36 // Sustain 3, Release 204 ms
+    lda #$38 // Sustain 3, Release 204 ms
     sta VOICE1+6
-    sta VOICE2+6
     sta VOICE3+6
+    lda #$16
+    sta VOICE2+6
     lda #$0f // Volume
     sta $d418
 

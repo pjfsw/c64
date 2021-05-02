@@ -110,48 +110,48 @@ pwmPtr: .byte 0,0,0
 rowOffset:
     .fill 64,i*3
 track:
-    .byte 36,60,84
+    .byte 36,60,72
     .byte  0,62,0
     .byte 36,63,0
-    .byte  0,60,84
+    .byte  0,60,72
 
     .byte 48,62,0
-    .byte 36,63,0
-    .byte 0,60,0
+    .byte 36,63,67
+    .byte 0,60,70
     .byte 36,62,0
 
-    .byte 0,70,84
+    .byte 0,70,72
     .byte 36,60,0
     .byte 0,62,0
-    .byte 36,63,84
+    .byte 36,63,72
 
     .byte 48,60,0
-    .byte 0,62,79
+    .byte 0,62,67
     .byte 36,63,0
     .byte 0,60,0
 //--------------------
-    .byte 32,60,77
+    .byte 32,60,65
     .byte  0,62,0
     .byte 32,63,0
-    .byte  0,60,77
+    .byte  0,60,65
 
     .byte 44,62,0
     .byte 32,63,0
     .byte 0,60,0
     .byte 32,62,0
 
-    .byte 0,67,77
+    .byte 0,67,65
     .byte 32,60,0
     .byte 0,62,0
-    .byte 32,65,77
+    .byte 32,65,65
 
     .byte 44,60,0
-    .byte 0,62,75
+    .byte 0,62,67
     .byte 32,63,0
     .byte 0,60,0
 
 .function getPw(cycle) {
-    .return 2048 + 2000 * sin((cycle+224)*PI/128)
+    .return 2048 + 2000 * sin((cycle+240)*PI/128)
 }
 
 pwmLo:
