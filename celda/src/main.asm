@@ -1,20 +1,24 @@
+#import "vic.asm"
+
 BasicUpstart2(programstart)
     *=$080e
 
 programstart:
-    lda #0
+    lda #BLACK
     sta $d020
+    lda #GRAY
     sta $d021
 
     jsr init_memory
 !:
-    jsr start
     jsr game
-    jsr gameover
     jmp !-
 
 init_memory:
     sei
+
+    lda #$35    // RAM $0000-$CFFF, IO $D000-$DFFF, RAM $E000-$FFFF
+    sta $01
 
     lda #$7f    // Clear CIA interrupts
     sta $dc0d
@@ -28,14 +32,12 @@ init_memory:
     lda #$f8    // Raster Y position
     sta $d012
 
-    lda #$1b    // Raster Y < 256 + character mode + 25 lines
+    lda #$1b    // 25 rows
     sta $d011
 
-    lda #$35    // RAM $0000-$CFFF, IO $D000-$DFFF, RAM $E000-$FFFF
-    sta $01
+    lda #$c8    // 40 cols, two color
+    sta $d016
 
     rts
 
-#import "start.asm"
 #import "game.asm"
-#import "gameover.asm"
