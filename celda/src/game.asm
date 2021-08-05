@@ -2,6 +2,10 @@
 
 #import "vic.asm"
 
+.const SPRITE_MIN_X = 8
+.const SPRITE_MAX_X = 222
+.const SPRITE_MIN_Y = 8
+.const SPRITE_MAX_Y = 164
 game:
 {
     sei
@@ -42,9 +46,11 @@ init_game:
     inx
     bne !-
 
-// Initialize sprite data
-    lda #spriteData>>6
-    sta SPRITE_PTR
+// Initialize coords
+    lda #SPRITE_MIN_X
+    sta spriteX
+    lda #SPRITE_MIN_Y
+    sta spriteY
 
 // Enable sprite 0
     lda #WHITE
@@ -52,6 +58,10 @@ init_game:
     sta SPRITE0_COLOR + 1
     lda #1
     sta SPRITE_ENABLE
+
+// Initialize animations
+    lda #0
+    sta animFrame
     rts
 
 //
@@ -116,6 +126,7 @@ irq:
 
     jsr readInput
     jsr movePlayer
+    jsr animate
     jsr drawSprites
 
 // IRQ CODE END
@@ -160,13 +171,41 @@ movePlayer:
     lda moveY
     beq !+
     adc spriteY
+    cmp #SPRITE_MIN_Y
+    bcc !+
+    cmp #SPRITE_MAX_Y
+    bcs !+
     sta spriteY
     rts
 !:
     clc
     lda moveX
     adc spriteX
+    cmp #SPRITE_MIN_X
+    bcc !+
+    cmp #SPRITE_MAX_X
+    bcs !+
     sta spriteX
+!:
+    rts
+
+animate:
+    lda moveX
+    ora moveY
+    bne !+
+    lda playerAnim
+    sta SPRITE_PTR
+    rts
+!:
+    lda animFrame
+    adc #1
+    sta animFrame
+    lsr
+    lsr
+    and #1
+    tax
+    lda playerAnim+1,x
+    sta SPRITE_PTR
     rts
 
 drawSprites:
@@ -191,23 +230,22 @@ drawSprites:
 //=================================================================================================
 // Graphics
 //=================================================================================================
+.align $40
+spriteData:
+#import "../resources/mysprites.txt"
 
 //=================================================================================================
 // LUT
 //=================================================================================================
-.align $40
-spriteData:
-#import "../resources/mysprites.txt"
-    //.byte $aa
-    //.fill 61,255
-    //.byte $aa
-
 spriteXTable:
-    .fill 256,<(i+24)
+    .fill 256,<(i+24+8)
 spriteHiTable:
-    .fill 256,>(i+24)
+    .fill 256,>(i+24+8)
 spriteYTable:
-    .fill 256,<(i+50)
+    .fill 256,<(i+50+8)
+playerAnim:
+    .byte spriteData>>6                         // idle
+    .byte (spriteData>>6)+1, (spriteData>>6)+2  // move
 
 .label TILE = $a0
 room:
@@ -235,6 +273,8 @@ spriteX:
     .fill 8,0
 spriteY:
     .fill 8,0
+animFrame:
+    .byte 0
 gameover:
     .byte 0
 moveX:
