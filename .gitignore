@@ -2,4 +2,5 @@
 *.d64
 *.sym
 .idea
-*.iml
+c64.iml
+target

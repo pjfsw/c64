@@ -10,15 +10,11 @@ game:
     lda #>irq
     sta $ffff
 
-    lda #0
-    sta gameover
-
     jsr init_game
     jsr load_room
     cli
-!:
-    lda gameover
-    beq !-
+
+    jmp *
 
     lda #0
     sta SPRITE_ENABLE // Disable sprites
@@ -201,9 +197,10 @@ drawSprites:
 //=================================================================================================
 .align $40
 spriteData:
-    .byte $aa
-    .fill 61,255
-    .byte $aa
+#import "../resources/mysprites.txt"
+    //.byte $aa
+    //.fill 61,255
+    //.byte $aa
 
 spriteXTable:
     .fill 256,<(i+24)
