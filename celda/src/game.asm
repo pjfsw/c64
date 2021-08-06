@@ -8,9 +8,9 @@
 .const ROOM_WIDTH = 34
 .const ROOM_HEIGHT = 25
 .const X_OFFSET = 3
-.const SPRITE_X_OFFSET = X_OFFSET * 8
+.const SPRITE_X_OFFSET = X_OFFSET * 8 - 4
 .const Y_OFFSET = 0
-.const SPRITE_Y_OFFSET = Y_OFFSET * 8
+.const SPRITE_Y_OFFSET = Y_OFFSET * 8 - 4
 .const SPRITE_MIN_Y = 0
 .const SPRITE_MAX_Y = SPRITE_MIN_Y + ROOM_HEIGHT*8-21
 
@@ -63,9 +63,9 @@ init_game:
     jsr clearScreen
 
 // Initialize coords
-    lda #SPRITE_MIN_X
+    lda #SPRITE_MIN_X+8
     sta spriteX
-    lda #SPRITE_MIN_Y
+    lda #SPRITE_MIN_Y+8
     sta spriteY
 
 // Enable sprite 0
@@ -139,8 +139,8 @@ irq:
 // IRQ CODE START
 
     jsr readInput
-    jsr movePlayer
     jsr checkCollision
+    jsr movePlayer
     jsr animate
     jsr drawSprites
 
@@ -205,7 +205,110 @@ movePlayer:
     rts
 
 checkCollision:
+    clc
+    lda moveY
+    beq !checkX+
+    bmi !checkUp+
+
+//check down
+    adc spriteY
+    adc #16 // Colliders are 16x16
+    jmp checkVerticalCollision
+
+!checkUp:
+    adc spriteY
+    jmp checkVerticalCollision
+
+!checkX:
+    lda moveX
+    bmi !checkLeft+
+    bne !checkRight+
     rts
+!checkLeft:
+    adc spriteX
+    jmp checkHorizontalCollision
+
+!checkRight:
+    adc spriteX
+    adc #16
+    jmp checkHorizontalCollision
+    rts
+
+// Forward y coordinate in A!
+checkVerticalCollision:
+    tay
+    lda rowLoTable,y
+    sta tmpPtr
+    lda rowHiTable,y
+    sta tmpPtr+1
+    ldy spriteX
+    lda colTable,y
+    clc
+    adc tmpPtr
+    sta tmpPtr
+    bcc !+
+    inc tmpPtr+1
+!:
+    tya
+    ldy #3
+    and #7
+    bne !+
+    // We are aligned perfectly on a char so only need to check two columns
+    ldy #2
+!:
+    lda (tmpPtr),y
+    cmp #32
+    bne !collision+
+    dey
+    bne !-
+    rts
+
+!collision:
+    lda #0
+    sta moveX
+    sta moveY
+    rts
+
+// Forward x coordinate in A!
+checkHorizontalCollision:
+    tax
+    ldy spriteY
+    lda rowLoTable,y
+    sta tmpPtr
+    lda rowHiTable,y
+    sta tmpPtr+1
+    ldy spriteX
+    lda colTable,x
+    clc
+    adc tmpPtr
+    sta tmpPtr
+    bcc !+
+    inc tmpPtr+1
+!:
+    ldy #0
+    txa
+    ldx #3
+    and #7
+    bne !+
+    // We are aligned perfectly on a char so only need to check two rows
+    ldx #2
+!:
+    lda (tmpPtr),y
+    cmp #32
+    bne !collision-
+    {
+        clc
+        lda tmpPtr
+        adc #40
+        sta tmpPtr
+        bcc !+
+        inc tmpPtr+1
+    !:
+    }
+    dex
+    bne !-
+    rts
+
 
 animate: {
     ldy #0  // Direction
@@ -283,12 +386,27 @@ spriteHiTable:
 spriteYTable:
     .fill 256,<(i+50 + SPRITE_Y_OFFSET)
 
+rowLoTable:
+    .fill 256,<(SCREEN_MEM + (i>>3)*40)
+rowHiTable:
+    .fill 256,>(SCREEN_MEM + (i>>3)*40)
+colTable:
+    .fill 256,(i>>3)+X_OFFSET
+
 .label TILE = $a0
 room:
     .fill ROOM_WIDTH, TILE
     .for (var y = 0; y < ROOM_HEIGHT-2; y++) {
         .byte TILE
-        .fill ROOM_WIDTH-2, 32
+        .if (y==12 || y==13) {
+        .fill 10, TILE
+        .fill ROOM_WIDTH-22, 32
+        .fill 10, TILE
+        } else {
+        .byte TILE
+        .fill ROOM_WIDTH-4, 32
+        .byte TILE
+        }
         .byte TILE
     }
     .fill ROOM_WIDTH, TILE
