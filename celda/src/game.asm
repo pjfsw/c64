@@ -10,7 +10,7 @@
 .const X_OFFSET = 3
 .const SPRITE_X_OFFSET = X_OFFSET * 8 - 4
 .const Y_OFFSET = 0
-.const SPRITE_Y_OFFSET = Y_OFFSET * 8 - 4
+.const SPRITE_Y_OFFSET = Y_OFFSET * 8 - 5
 .const SPRITE_MIN_Y = 0
 .const SPRITE_MAX_Y = SPRITE_MIN_Y + ROOM_HEIGHT*8-21
 
@@ -212,7 +212,7 @@ checkCollision:
 
 //check down
     adc spriteY
-    adc #16 // Colliders are 16x16
+    adc #15 // Colliders are 16x16
     jmp checkVerticalCollision
 
 !checkUp:
@@ -230,7 +230,7 @@ checkCollision:
 
 !checkRight:
     adc spriteX
-    adc #16
+    adc #15
     jmp checkHorizontalCollision
     rts
 
@@ -250,17 +250,17 @@ checkVerticalCollision:
     inc tmpPtr+1
 !:
     tya
-    ldy #3
+    ldy #2
     and #7
     bne !+
     // We are aligned perfectly on a char so only need to check two columns
-    ldy #2
+    ldy #1
 !:
     lda (tmpPtr),y
     cmp #32
     bne !collision+
     dey
-    bne !-
+    bpl !-
     rts
 
 !collision:
@@ -286,12 +286,12 @@ checkHorizontalCollision:
     inc tmpPtr+1
 !:
     ldy #0
-    txa
-    ldx #3
+    lda spriteY
+    ldx #2
     and #7
     bne !+
     // We are aligned perfectly on a char so only need to check two rows
-    ldx #2
+    ldx #1
 !:
     lda (tmpPtr),y
     cmp #32
@@ -306,11 +306,15 @@ checkHorizontalCollision:
     !:
     }
     dex
-    bne !-
+    bpl !-
     rts
 
 
 animate: {
+    //lda #debugSprite/64
+    //sta SPRITE_PTR
+    //rts
+
     ldy #0  // Direction
     lda moveY
     bmi !animateDown+
@@ -331,12 +335,19 @@ animate: {
     ldy #3
 !updateAnimation:
     sty animDirection
+
     lda animFrame
-    adc #1
-    sta animFrame
-    lsr
-    lsr
     and #1
+
+    ldx frameCount
+    inx
+    cpx #5
+    bcc !+
+    ldx #0
+    eor #1
+    sta animFrame
+!:
+    stx frameCount
     clc
     adc #playerSpritePtr+1
     adc animDirection
@@ -367,6 +378,10 @@ drawSprites:
 //=================================================================================================
 // Graphics
 //=================================================================================================
+.align $40
+debugSprite:
+.fill 16,[255,255,0]
+.fill 5, [0,0,0]
 .align $40
 spriteData:
 #import "../resources/mysprites.txt"
@@ -437,6 +452,8 @@ spriteX:
 spriteY:
     .fill 8,0
 animFrame:
+    .byte 0
+frameCount:
     .byte 0
 gameover:
     .byte 0
