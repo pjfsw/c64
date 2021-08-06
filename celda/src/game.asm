@@ -195,17 +195,26 @@ movePlayer:
     rts
 
 animate: {
-    ldy #1
+    ldy #0  // Direction
     lda moveY
     bmi !animateDown+
     bne !updateAnimation+
+    ldy #6
+    lda moveX
+    bmi !animateLeft+
+    bne !updateAnimation+
+    clc
     lda #playerSpritePtr
+    adc animDirection
     sta SPRITE_PTR
     rts
+!animateLeft:
+    ldy #9
+    jmp !updateAnimation+
 !animateDown:
-    ldy #4
+    ldy #3
 !updateAnimation:
-    sty animOffset
+    sty animDirection
     lda animFrame
     adc #1
     sta animFrame
@@ -213,8 +222,8 @@ animate: {
     lsr
     and #1
     clc
-    adc #playerSpritePtr
-    adc animOffset
+    adc #playerSpritePtr+1
+    adc animDirection
 
     sta SPRITE_PTR
     rts
@@ -247,6 +256,9 @@ spriteData:
 #import "../resources/mysprites.txt"
 
 .label playerSpritePtr = spriteData >> 6
+
+animDirection:
+    .byte 0
 
 //=================================================================================================
 // LUT
@@ -291,8 +303,6 @@ gameover:
 moveX:
     .byte 0
 moveY:
-    .byte 0
-animOffset:
     .byte 0
 * = CODE
 }
