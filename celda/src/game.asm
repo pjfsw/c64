@@ -1,18 +1,23 @@
 #importonce
 
 #import "vic.asm"
+#import "macros.asm"
 
-.const SPRITE_MIN_X = 8
-.const SPRITE_MAX_X = 222
-.const SPRITE_MIN_Y = 8
-.const SPRITE_MAX_Y = 164
+.const SPRITE_MIN_X = 2
+.const SPRITE_MAX_X = 254
+.const ROOM_WIDTH = 34
+.const ROOM_HEIGHT = 25
+.const X_OFFSET = 3
+.const SPRITE_X_OFFSET = X_OFFSET * 8
+.const Y_OFFSET = 0
+.const SPRITE_Y_OFFSET = Y_OFFSET * 8
+.const SPRITE_MIN_Y = 0
+.const SPRITE_MAX_Y = SPRITE_MIN_Y + ROOM_HEIGHT*8-21
+
 game:
 {
     sei
-    lda #<irq
-    sta $fffe
-    lda #>irq
-    sta $ffff
+    ptr($fffe, irq)
 
     jsr init_game
     jsr load_room
@@ -24,27 +29,38 @@ game:
     sta SPRITE_ENABLE // Disable sprites
     rts
 
-init_game:
-// Clear screen memory
-    lda #32
-    ldx #0
-!:
-    sta SCREEN_MEM,x
-    sta SCREEN_MEM+$100,x
-    sta SCREEN_MEM+$200,x
-    sta SCREEN_MEM+$300,x
-    inx
-    bne !-
+clearScreen:
+    ptr(screenPtr, SCREEN_MEM)
+    ptr(tmpPtr, COLOR_RAM)
 
-    lda #GRAY
-    ldx #0
-!:
-    sta COLOR_RAM,x
-    sta COLOR_RAM+$100,x
-    sta COLOR_RAM+$200,x
-    sta COLOR_RAM+$300,x
-    inx
-    bne !-
+    ldx #24
+!:  {
+        ldy #39
+    !:
+        lda backgroundData,y
+        sta (screenPtr),y
+        lda colorData,y
+        sta (tmpPtr),y
+        dey
+        bpl !-
+
+        clc
+        lda screenPtr
+        adc #40
+        sta screenPtr
+        sta tmpPtr
+        bcc !+
+        inc screenPtr+1
+        inc tmpPtr+1
+    !:
+    }
+    dex
+    bpl !-
+
+    rts
+
+init_game:
+    jsr clearScreen
 
 // Initialize coords
     lda #SPRITE_MIN_X
@@ -73,17 +89,10 @@ init_game:
 // Load current room
 //
 load_room:
-    lda #<SCREEN_MEM
-    sta.z screenPtr
-    lda #>SCREEN_MEM
-    sta.z screenPtr+1
+    ptr(screenPtr, SCREEN_MEM+X_OFFSET+40*Y_OFFSET)
+    ptr(roomPtr, room)
 
-    lda #<room
-    sta.z roomPtr
-    lda #>room
-    sta.z roomPtr+1
-
-    ldx #24 // rows
+    ldx #ROOM_HEIGHT // rows
 !:
     {
         ldy #0  // cols
@@ -91,7 +100,7 @@ load_room:
         lda (roomPtr),y
         sta (screenPtr),y
         iny
-        cpy #32
+        cpy #ROOM_WIDTH
         bne !-
 
         clc
@@ -103,7 +112,7 @@ load_room:
     !:
         clc
         lda roomPtr
-        adc #32
+        adc #ROOM_WIDTH
         sta roomPtr
         bcc !+
         inc roomPtr+1
@@ -264,23 +273,30 @@ animDirection:
 // LUT
 //=================================================================================================
 spriteXTable:
-    .fill 256,<(i+24+8)
+    .fill 256,<(i + 24 + SPRITE_X_OFFSET)
 spriteHiTable:
-    .fill 256,>(i+24+8)
+    .fill 256,>(i + 24 + SPRITE_X_OFFSET)
 spriteYTable:
-    .fill 256,<(i+50+8)
+    .fill 256,<(i+50 + SPRITE_Y_OFFSET)
 
 .label TILE = $a0
 room:
-    .fill 32, TILE
-    .for (var y = 0; y < 22; y++) {
+    .fill ROOM_WIDTH, TILE
+    .for (var y = 0; y < ROOM_HEIGHT-2; y++) {
         .byte TILE
-        .fill 30, 32
+        .fill ROOM_WIDTH-2, 32
         .byte TILE
     }
-    .fill 32, TILE
+    .fill ROOM_WIDTH, TILE
 
-
+colorData:
+    .fill X_OFFSET, 0
+    .fill ROOM_WIDTH, GRAY
+    .fill 40 - ROOM_WIDTH - X_OFFSET, 0
+backgroundData:
+    .fill X_OFFSET, 128+32
+    .fill ROOM_WIDTH, 32
+    .fill 40 - ROOM_WIDTH - X_OFFSET, 128+32
 
 .label CODE=*
 *=$02 "Zeropage" virtual
@@ -289,6 +305,8 @@ room:
 roomPtr:
     .byte 0,0
 screenPtr:
+    .byte 0,0
+tmpPtr:
     .byte 0,0
 }
 *=$E000 "Temp variables" virtual
