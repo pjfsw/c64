@@ -36,7 +36,7 @@ init_game:
     inx
     bne !-
 
-    lda #DARK_GRAY
+    lda #GRAY
     ldx #0
 !:
     sta COLOR_RAM,x
@@ -53,9 +53,14 @@ init_game:
     sta spriteY
 
 // Enable sprite 0
-    lda #WHITE
+    lda #1
+    sta SPRITE_MULTI_COLOR
+    lda #$0f // sprite multicolor 1
+    sta SPRITE_EXTRA_COLOR1
+    lda #$09 // sprite multicolor 2
+    sta SPRITE_EXTRA_COLOR2
+    lda #$0a
     sta SPRITE0_COLOR
-    sta SPRITE0_COLOR + 1
     lda #1
     sta SPRITE_ENABLE
 
@@ -189,24 +194,31 @@ movePlayer:
 !:
     rts
 
-animate:
-    lda moveX
-    ora moveY
-    bne !+
-    lda playerAnim
+animate: {
+    ldy #1
+    lda moveY
+    bmi !animateDown+
+    bne !updateAnimation+
+    lda #playerSpritePtr
     sta SPRITE_PTR
     rts
-!:
+!animateDown:
+    ldy #4
+!updateAnimation:
+    sty animOffset
     lda animFrame
     adc #1
     sta animFrame
     lsr
     lsr
     and #1
-    tax
-    lda playerAnim+1,x
+    clc
+    adc #playerSpritePtr
+    adc animOffset
+
     sta SPRITE_PTR
     rts
+}
 
 drawSprites:
     lda #0
@@ -234,6 +246,8 @@ drawSprites:
 spriteData:
 #import "../resources/mysprites.txt"
 
+.label playerSpritePtr = spriteData >> 6
+
 //=================================================================================================
 // LUT
 //=================================================================================================
@@ -243,9 +257,6 @@ spriteHiTable:
     .fill 256,>(i+24+8)
 spriteYTable:
     .fill 256,<(i+50+8)
-playerAnim:
-    .byte spriteData>>6                         // idle
-    .byte (spriteData>>6)+1, (spriteData>>6)+2  // move
 
 .label TILE = $a0
 room:
@@ -281,6 +292,7 @@ moveX:
     .byte 0
 moveY:
     .byte 0
-
+animOffset:
+    .byte 0
 * = CODE
 }
