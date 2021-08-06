@@ -140,6 +140,7 @@ irq:
 
     jsr readInput
     jsr movePlayer
+    jsr checkCollision
     jsr animate
     jsr drawSprites
 
@@ -201,6 +202,9 @@ movePlayer:
     bcs !+
     sta spriteX
 !:
+    rts
+
+checkCollision:
     rts
 
 animate: {
