@@ -69,13 +69,13 @@ init_game:
     sta spriteY
 
 // Enable sprite 0
-    lda #1
+    lda #$ff
     sta SPRITE_MULTI_COLOR
-    lda #$0f // sprite multicolor 1
+    lda #WHITE // sprite multicolor 1
     sta SPRITE_EXTRA_COLOR1
-    lda #$09 // sprite multicolor 2
+    lda #DARK_GRAY // sprite multicolor 2
     sta SPRITE_EXTRA_COLOR2
-    lda #$0a
+    lda #YELLOW
     sta SPRITE0_COLOR
     lda #1
     sta SPRITE_ENABLE
@@ -257,8 +257,7 @@ checkVerticalCollision:
     ldy #1
 !:
     lda (tmpPtr),y
-    cmp #32
-    bne !collision+
+    bpl !collision+
     dey
     bpl !-
     rts
@@ -294,8 +293,7 @@ checkHorizontalCollision:
     ldx #1
 !:
     lda (tmpPtr),y
-    cmp #32
-    bne !collision-
+    bpl !collision-
     {
         clc
         lda tmpPtr
@@ -408,18 +406,19 @@ rowHiTable:
 colTable:
     .fill 256,(i>>3)+X_OFFSET
 
-.label TILE = $a0
+.label TILE = $51
+.label FLOOR = $a0
 room:
     .fill ROOM_WIDTH, TILE
     .for (var y = 0; y < ROOM_HEIGHT-2; y++) {
         .byte TILE
         .if (y==12 || y==13) {
         .fill 10, TILE
-        .fill ROOM_WIDTH-22, 32
+        .fill ROOM_WIDTH-22, FLOOR
         .fill 10, TILE
         } else {
         .byte TILE
-        .fill ROOM_WIDTH-4, 32
+        .fill ROOM_WIDTH-4, FLOOR
         .byte TILE
         }
         .byte TILE
@@ -431,9 +430,9 @@ colorData:
     .fill ROOM_WIDTH, GRAY
     .fill 40 - ROOM_WIDTH - X_OFFSET, 0
 backgroundData:
-    .fill X_OFFSET, 128+32
+    .fill X_OFFSET, 32+$80
     .fill ROOM_WIDTH, 32
-    .fill 40 - ROOM_WIDTH - X_OFFSET, 128+32
+    .fill 40 - ROOM_WIDTH - X_OFFSET, 32+$80
 
 .label CODE=*
 *=$02 "Zeropage" virtual

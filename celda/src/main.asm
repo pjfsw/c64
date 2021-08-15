@@ -6,7 +6,7 @@ BasicUpstart2(programstart)
 programstart:
     lda #BLACK
     sta $d020
-    lda #$0b
+    lda #LIGHT_GRAY
     sta $d021
 
     jsr init_memory
