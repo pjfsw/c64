@@ -4,3 +4,6 @@
 .idea
 c64.iml
 target
+*.avi
+*.crt
+*.bin
