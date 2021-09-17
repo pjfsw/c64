@@ -29,10 +29,17 @@ main:
 .pseudopc $c000 {
     lda #1
     sta EASYFLASH_BANK
-    lda $8000
-    sta $0400
-    lda $a000
-    sta $0401
+    ldx #0
+!:
+    .for (var i = 0; i < 4; i++) {
+        lda $8000+i*256,x
+        sta $0400+i*256,x
+        lda $9000+i*256,x
+        sta $d800+i*256,x
+    }
+    dex
+    bne !-
+
 !:
     inc $d020
     jmp !-
@@ -112,8 +119,8 @@ no_interrupt:
 
 .segment BANK1
 * = $8000
-.encoding "screencode_upper"
-    .fill $2000,'0'
-    .fill $2000,'1'
+.var loading_screen_binary = LoadBinary("mars.seq")
+    .print "Size = " + loading_screen_binary.getSize()
+    .fill loading_screen_binary.getSize(), loading_screen_binary.get(i)
 
 .segment BANK_DUMMY
