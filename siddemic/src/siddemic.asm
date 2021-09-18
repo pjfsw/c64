@@ -127,6 +127,24 @@ irq:
     jsr music.play
     jsr active_sequence:scene_intro
 
+    ldx scene_ptr
+    lda scene_index,x
+    beq !+  // Final scene, don't change anything
+    dec scene_frame
+    bne !+
+
+    inc scene_ptr
+    ldx scene_ptr
+    lda scene_duration,x
+    sta scene_frame
+    lda scene_index,x
+    tax
+    lda scene_table_lo,x
+    sta active_sequence
+    lda scene_table_hi,x
+    sta active_sequence+1
+!:
+
     dec anim_frame
     bne !+
     lda anim
@@ -139,12 +157,6 @@ irq:
     ldx lighting_frame
     dex
     bne !+
-    inc scene_frame
-    ldx scene_frame
-    lda scene_table_lo,x
-    sta active_sequence
-    lda scene_table_hi,x
-    sta active_sequence+1
 
     ldx #48
 !:
@@ -158,6 +170,9 @@ irq:
 
 .const message_row = 12
 scene_intro:
+    lda #0
+    sta $d015
+    sta $d021
     rts
 
 scene_dj:
@@ -312,9 +327,6 @@ row_characters:
     .fill 7,32
     .fill 12,128+32
 
-scene_frame:
-    .byte 0
-
 .function scenetable(x) {
     .if (x < 17) {
         .return scene_intro
@@ -331,10 +343,27 @@ scene_frame:
     }
 }
 
+scene_frame:
+    .byte 191
+scene_ptr:
+    .byte 0
+.const HP = 192
+.const QP = 96
+.const BT = 12
+
+scene_index:
+    .byte 1,1,1,1
+    .fill 4, [5,5,2,3,4]
+    .byte 0
+scene_duration:
+    .byte HP,HP,HP,HP
+    .fill 4, [HP, HP-8*BT,4*BT,2*BT, 2*BT]
+    .byte 0
+
 scene_table_lo:
-    .fill 256,<scenetable(i)
+    .byte <scene_intro, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj
 scene_table_hi:
-    .fill 256,>scenetable(i)
+    .byte >scene_intro, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj
 
 sinpos:
     .byte 0
