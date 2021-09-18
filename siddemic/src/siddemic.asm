@@ -3,6 +3,7 @@
 .var djgear = LoadPicture("djgear.png", List().add($ffffff, $000000))
 .var pjfsw = LoadPicture("pjfsw.png", List().add($ffffff, $000000));
 .var siddemic = LoadPicture("siddemic.png", List().add($ffffff, $000000));
+.var house = LoadPicture("house.png", List().add($ffffff, $000000));
 
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
@@ -35,13 +36,6 @@ spriteOn:
     lda #$c0
     sta $d01d
     sta $d017
-
-    lda #0
-    ldx #5
-!:
-    sta $d027,x
-    dex
-    bpl !-
 
     ldx #spriteData/64
     stx SPRITEPTR
@@ -139,18 +133,6 @@ irq:
     and #1
     eor #1
     sta anim
-    tay
-    lda anim_offset,y
-    clc
-    ldx #0
-    {
-    !:
-        sta SPRITEPTR,x
-        adc #1
-        inx
-        cpx #4
-        bne !-
-    }
     lda #12
     sta anim_frame
 !:
@@ -175,8 +157,30 @@ irq:
     rti
 
 .const message_row = 12
+scene_intro:
+    rts
 
 scene_dj:
+    lda #0
+    ldx #5
+!:
+    sta $d027,x
+    dex
+    bpl !-
+
+    ldy anim
+    lda anim_offset,y
+    clc
+    ldx #0
+    {
+    !:
+        sta SPRITEPTR,x
+        adc #1
+        inx
+        cpx #4
+        bne !-
+    }
+
     ldx #11
 !:
     lda spritePos,x
@@ -192,7 +196,7 @@ scene_dj:
     sta $d015
     rts
 
-scene_intro:
+scene_pjfsw:
     ldx sinpos
     inx
     stx sinpos
@@ -215,7 +219,68 @@ scene_intro:
     rts
 
 scene_siddemic:
+    ldx #siddemicSpriteData/64
+    stx SPRITEPTR
+    inx
+    stx SPRITEPTR+1
+    inx
+    stx SPRITEPTR+2
+    inx
+    stx SPRITEPTR+3
+    lda #6
+    sta $d027
+    sta $d028
+    sta $d029
+    sta $d02a
+.const siddemic_x = 136
+    lda #100
+    sta $d001
+    sta $d003
+    sta $d005
+    sta $d007
+    lda #siddemic_x
+    sta $d000
+    lda #siddemic_x+24
+    sta $d002
+    lda #siddemic_x+48
+    sta $d004
+    lda #siddemic_x+72
+    sta $d006
+    lda #$0f
+    sta $d015
     rts
+
+scene_house:
+    ldx #houseSpriteData/64
+    stx SPRITEPTR
+    inx
+    stx SPRITEPTR+1
+    inx
+    stx SPRITEPTR+2
+    inx
+    stx SPRITEPTR+3
+    lda #4
+    sta $d027
+    sta $d028
+    sta $d029
+    sta $d02a
+.const house_x = 144
+    lda #100
+    sta $d001
+    sta $d003
+    lda #121
+    sta $d005
+    sta $d007
+    lda #house_x
+    sta $d000
+    sta $d004
+    lda #house_x+24
+    sta $d002
+    sta $d006
+    lda #$0f
+    sta $d015
+    rts
+
 spritePos:
     .const baseX = 160
     .const baseY = 106
@@ -253,8 +318,14 @@ scene_frame:
 .function scenetable(x) {
     .if (x < 17) {
         .return scene_intro
-    } else .if (((x-1)&15) == 15) {
-        .return scene_intro
+    }
+
+    .if (((x-1)&$e) == $c) {
+        .return scene_pjfsw
+    } else .if (((x-1)&$f) == $e) {
+        .return scene_siddemic
+    } else .if (((x-1)&$f) == $f) {
+        .return scene_house
     } else {
         .return scene_dj
     }
@@ -273,37 +344,36 @@ sintable:
 *=music.location "Music"
     .fill music.size, music.getData(i)
 
-
-.align $40
-spriteData:
-    .for (var i = 0; i < 8; i++) {
-        .for (var y = 0; y < 21; y++) {
-            .for (var x = 0; x < 3; x++) {
-                .byte dj.getSinglecolorByte((i&1)*3+x, (i>>1)*21+y)
-            }
-        }
-        .byte 0
-    }
-
-.macro fill_sprite(img, w) {
+.macro fill_sprite(img, w, yofs) {
     .for (var i = 0; i < w; i++) {
         .for (var y = 0; y < 21; y++) {
             .for (var x = 0; x < 3; x++) {
-                .byte img.getSinglecolorByte(i*3+x, y);
+                .byte img.getSinglecolorByte(i*3+x, (yofs*21)+y);
             }
         }
         .byte 0
     }
 }
 
+.align $40
+spriteData:
+    .for (var i = 0; i < 4; i++) {
+        fill_sprite(dj, 2, i);
+    }
+
+
 boothSpriteData:
-    fill_sprite(djgear, 2)
+    fill_sprite(djgear, 2, 0)
 
 pjfswSpriteData:
-    fill_sprite(pjfsw, 2)
+    fill_sprite(pjfsw, 2, 0)
 
 siddemicSpriteData:
-    fill_sprite(siddemic, 4)
+    fill_sprite(siddemic, 4, 0)
+
+houseSpriteData:
+    fill_sprite(house, 2, 0)
+    fill_sprite(house, 2, 1)
 
 *=$02 "Zeropage" virtual
 .zp {
