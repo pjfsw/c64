@@ -1,6 +1,8 @@
 .var music = LoadSid("siddemic_house.sid")
 .var dj = LoadPicture("dj.png", List().add($ffffff,$000000))
 .var djgear = LoadPicture("djgear.png", List().add($ffffff, $000000))
+.var pjfsw = LoadPicture("pjfsw.png", List().add($ffffff, $000000));
+.var siddemic = LoadPicture("siddemic.png", List().add($ffffff, $000000));
 
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
@@ -27,18 +29,12 @@ programStart:
     jmp *
 
 spriteOn:
-    ldx #11
-!:
-    lda spritePos,x
-    sta $d000,x
-    dex
-    bpl !-
-
     lda #0
-    sta $d010
-    sta $d017
     sta $d01c
+    sta $d010
+    lda #$c0
     sta $d01d
+    sta $d017
 
     lda #0
     ldx #5
@@ -59,9 +55,10 @@ spriteOn:
     stx SPRITEPTR+4
     inx
     stx SPRITEPTR+5
-
-    lda #$3f
-    sta $d015
+    ldx #pjfswSpriteData/64
+    stx SPRITEPTR+6
+    inx
+    stx SPRITEPTR+7
 
     rts
 initMemory:
@@ -128,12 +125,13 @@ initMemory:
     rts
 
 
-irq: {
+irq:
     sta a_temp
     stx x_temp
     sty y_temp
 
     jsr music.play
+    jsr active_sequence:scene_intro
 
     dec anim_frame
     bne !+
@@ -159,19 +157,65 @@ irq: {
     ldx lighting_frame
     dex
     bne !+
+    inc scene_frame
+    ldx scene_frame
+    lda scene_table_lo,x
+    sta active_sequence
+    lda scene_table_hi,x
+    sta active_sequence+1
+
     ldx #48
 !:
     stx lighting_frame
-    lda background_color,x
-    sta $d021
 
     asl $d019
     lda a_temp:#0
     ldx x_temp:#0
     ldy y_temp:#0
     rti
-}
 
+.const message_row = 12
+
+scene_dj:
+    ldx #11
+!:
+    lda spritePos,x
+    sta $d000,x
+    dex
+    bpl !-
+
+    ldx lighting_frame
+    lda background_color,x
+    sta $d021
+
+    lda #$3f
+    sta $d015
+    rts
+
+scene_intro:
+    ldx sinpos
+    inx
+    stx sinpos
+    lda sintable,x
+    sta $d00c
+    clc
+    adc #48
+    sta $d00e
+    lda #$50
+    sta $d00d
+    sta $d00f
+    lda #0
+    sta $d021
+    ldx lighting_frame
+    lda background_color,x
+    sta $d02d
+    sta $d02e
+    lda #$c0
+    sta $d015
+    rts
+
+scene_siddemic:
+    rts
 spritePos:
     .const baseX = 160
     .const baseY = 106
@@ -203,6 +247,29 @@ row_characters:
     .fill 7,32
     .fill 12,128+32
 
+scene_frame:
+    .byte 0
+
+.function scenetable(x) {
+    .if (x < 17) {
+        .return scene_intro
+    } else .if (((x-1)&15) == 15) {
+        .return scene_intro
+    } else {
+        .return scene_dj
+    }
+}
+
+scene_table_lo:
+    .fill 256,<scenetable(i)
+scene_table_hi:
+    .fill 256,>scenetable(i)
+
+sinpos:
+    .byte 0
+sintable:
+    .fill 256,130+32*sin(i*PI/32)
+
 *=music.location "Music"
     .fill music.size, music.getData(i)
 
@@ -217,15 +284,26 @@ spriteData:
         }
         .byte 0
     }
-boothSpriteData:
-    .for (var i = 0; i < 2; i++) {
+
+.macro fill_sprite(img, w) {
+    .for (var i = 0; i < w; i++) {
         .for (var y = 0; y < 21; y++) {
             .for (var x = 0; x < 3; x++) {
-                .byte djgear.getSinglecolorByte(i*3+x, y);
+                .byte img.getSinglecolorByte(i*3+x, y);
             }
         }
         .byte 0
     }
+}
+
+boothSpriteData:
+    fill_sprite(djgear, 2)
+
+pjfswSpriteData:
+    fill_sprite(pjfsw, 2)
+
+siddemicSpriteData:
+    fill_sprite(siddemic, 4)
 
 *=$02 "Zeropage" virtual
 .zp {
