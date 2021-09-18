@@ -55,6 +55,7 @@ spriteOn:
     stx SPRITEPTR+7
 
     rts
+
 initMemory:
     sei
 
@@ -79,31 +80,14 @@ initMemory:
     lda #$c8    // 40 cols, two color
     sta $d016
 
-    lda #<SCREEN
-    sta screen_ptr
-    lda #>SCREEN
-    sta screen_ptr+1
-
     ldx #0
+    lda #128+32
 !:
-    {
-        lda row_characters,x
-        ldy #39
-    !:
-        sta (screen_ptr),y
-        dey
-        bpl !-
-
-        clc
-        lda screen_ptr
-        adc #40
-        sta screen_ptr
-        bcc !+
-        inc screen_ptr+1
-    !:
-    }
-    inx
-    cpx #25
+    sta SCREEN,x
+    sta SCREEN+$100,x
+    sta SCREEN+$200,x
+    sta SCREEN+$300,x
+    dex
     bne !-
 
     ldx #0
@@ -168,11 +152,110 @@ irq:
     ldy y_temp:#0
     rti
 
-.const message_row = 12
-scene_intro:
+scene_end:
     lda #0
     sta $d015
     sta $d021
+    rts
+
+.function getRow(row) {
+    .return SCREEN+row*40
+}
+
+.const row = 6
+fillscreen_lo:
+    .byte <getRow(row), <getRow(row+1), <getRow(row+2), <getRow(row+3), <getRow(row+4), <getRow(row+5), <getRow(row+6)
+fillscreen_hi:
+    .byte >getRow(row), >getRow(row+1), >getRow(row+2), >getRow(row+3), >getRow(row+4), >getRow(row+5), >getRow(row+6)
+fillscreen_pos:
+    .byte 7
+
+scene_fillscreen:
+    lda #0
+    sta $d015
+    lda #11
+    sta $d021
+    ldy fillscreen_pos
+    bne !+
+    rts
+!:
+    dey
+    sty fillscreen_pos
+    lda fillscreen_lo,y
+    sta screen_ptr
+    lda fillscreen_hi,y
+    sta screen_ptr+1
+    ldy #39
+    lda #32
+!:
+    sta (screen_ptr),y
+    dey
+    bpl !-
+
+    rts
+
+.var msg0 = "                                "
+.var msg1 = "        PJFSW PRESENTS          "
+.var msg2 = "MUSIC AND CODE BY JOHAN FRANSSON"
+.const message_row = 12
+    .encoding "screencode_upper"
+message0:
+    .fill msg0.size(), msg0.charAt(i)+128
+message1:
+    .fill msg1.size(), msg1.charAt(i)+128
+message2:
+    .fill msg2.size(), msg2.charAt(i)+128
+
+msg_ptr:
+    .byte 0
+message_table_lo:
+    .byte <message0, <message1, <message2, <message0
+message_table_hi:
+    .byte >message0, >message1, >message2, >message0
+
+msg_color_ptr:
+    .byte 0
+msg_color_table:
+    .byte 0,9,8,7
+    .fill 40,1
+    .byte 15,12,11,0
+
+scene_intro:
+    lda msg_color_ptr
+    lsr
+    lsr
+    tax
+    lda msg_color_table,x
+    sta $d021
+    ldx msg_color_ptr
+    inx
+    cpx #192
+    bne !+
+
+    ldy msg_ptr
+    iny
+    tya
+    and #3
+    sta msg_ptr
+    ldx #0
+!:
+    stx msg_color_ptr
+
+    lda #0
+    sta $d015
+
+    ldx msg_ptr
+    lda message_table_lo,x
+    sta screen_ptr
+    lda message_table_hi,x
+    sta screen_ptr+1
+    ldy #msg1.size()-1
+!:
+    lda (screen_ptr),y
+    sta $0400+40*message_row+(40-msg1.size())/2,y
+    dey
+    bpl !-
+
     rts
 
 scene_dj:
@@ -322,11 +405,6 @@ background_color:
     .byte $b,$b,$b,$b,$b,$b
     .byte $c,$c,$5,$f,$f,$f
 
-row_characters:
-    .fill 6,128+32
-    .fill 7,32
-    .fill 12,128+32
-
 .function scenetable(x) {
     .if (x < 17) {
         .return scene_intro
@@ -352,18 +430,18 @@ scene_ptr:
 .const BT = 12
 
 scene_index:
-    .byte 1,1,1,1
+    .byte 1,1,1,1,3,4,6
     .fill 4, [5,5,2,3,4]
     .byte 0
 scene_duration:
-    .byte HP,HP,HP,HP
-    .fill 4, [HP, HP-8*BT,4*BT,2*BT, 2*BT]
+    .byte HP,HP,HP,HP-8*BT,4*BT, 3*BT, BT
+    .fill 4, [HP, HP - 8*BT,4*BT,2*BT, 2*BT]
     .byte 0
 
 scene_table_lo:
-    .byte <scene_intro, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj
+    .byte <scene_end, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj, <scene_fillscreen
 scene_table_hi:
-    .byte >scene_intro, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj
+    .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
 
 sinpos:
     .byte 0
