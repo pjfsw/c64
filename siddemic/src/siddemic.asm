@@ -1,5 +1,7 @@
 .var music = LoadSid("siddemic_house.sid")
-.var dj = LoadPicture("dj.png", List().add($fffff,$00000))
+.var dj = LoadPicture("dj.png", List().add($ffffff,$000000))
+.var djgear = LoadPicture("djgear.png", List().add($ffffff, $000000))
+
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
 
@@ -25,7 +27,7 @@ programStart:
     jmp *
 
 spriteOn:
-    ldx #7
+    ldx #11
 !:
     lda spritePos,x
     sta $d000,x
@@ -39,7 +41,7 @@ spriteOn:
     sta $d01d
 
     lda #0
-    ldx #3
+    ldx #5
 !:
     sta $d027,x
     dex
@@ -53,8 +55,12 @@ spriteOn:
     stx SPRITEPTR+2
     inx
     stx SPRITEPTR+3
+    ldx #boothSpriteData/64
+    stx SPRITEPTR+4
+    inx
+    stx SPRITEPTR+5
 
-    lda #$0f
+    lda #$3f
     sta $d015
 
     rts
@@ -168,12 +174,13 @@ irq: {
 
 spritePos:
     .const baseX = 160
-    .const baseY = 104
+    .const baseY = 106
     .byte baseX, baseY, baseX+24, baseY
     .byte baseX, baseY+21, baseX+24, baseY+21
+    .byte baseX-8, baseY+27, baseX+24-8, baseY+27
 
 lighting_frame:
-    .byte 1
+    .byte 3
 anim_frame:
     .byte 1
 anim:
@@ -189,17 +196,15 @@ background_color:
     .byte $f,$0,$0,$0,$0,$0
     .byte $b,$b,$b,$b,$b,$b
     .byte $b,$b,$b,$b,$b,$b
-    .byte $c,$c,$5,$f,$d,$d
+    .byte $c,$c,$5,$f,$f,$f
 
 row_characters:
     .fill 6,128+32
-    .fill 6,32
-    .byte $63
+    .fill 7,32
     .fill 12,128+32
 
 *=music.location "Music"
     .fill music.size, music.getData(i)
-
 
 
 .align $40
@@ -212,7 +217,15 @@ spriteData:
         }
         .byte 0
     }
-
+boothSpriteData:
+    .for (var i = 0; i < 2; i++) {
+        .for (var y = 0; y < 21; y++) {
+            .for (var x = 0; x < 3; x++) {
+                .byte djgear.getSinglecolorByte(i*3+x, y);
+            }
+        }
+        .byte 0
+    }
 
 *=$02 "Zeropage" virtual
 .zp {
