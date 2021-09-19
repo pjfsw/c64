@@ -8,6 +8,7 @@
 .var house = LoadPicture("house.png", PAL);
 .var syringe = LoadPicture("syringe.png", PAL)
 .var cv = LoadPicture("cv.png", PAL)
+.var walk = LoadPicture("walk.png", PAL)
 
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
@@ -41,18 +42,14 @@ spriteOn:
     sta $d01d
     sta $d017
 
-    ldx #spriteData/64
+/*    ldx #spriteData/64
     stx SPRITEPTR
     inx
     stx SPRITEPTR+1
     inx
     stx SPRITEPTR+2
     inx
-    stx SPRITEPTR+3
-    ldx #boothSpriteData/64
-    stx SPRITEPTR+4
-    inx
-    stx SPRITEPTR+5
+    stx SPRITEPTR+3*/
     ldx #pjfswSpriteData/64
     stx SPRITEPTR+6
     inx
@@ -113,6 +110,10 @@ irq:
     sty y_temp
 
     jsr music.play
+
+    lda #0
+    sta $d010
+
     jsr active_sequence:scene_intro
 
     ldx scene_ptr
@@ -263,6 +264,11 @@ scene_intro:
     rts
 
 scene_dj:
+    ldx #boothSpriteData/64
+    stx SPRITEPTR+4
+    inx
+    stx SPRITEPTR+5
+
     lda #0
     ldx #5
 !:
@@ -419,6 +425,92 @@ scene_cv:
     sta $d015
     rts
 
+.const walkSpeed=8
+walkOffset:
+    .byte 0
+walkFrame:
+    .byte walkSpeed
+walkPos:
+    .word 0
+scene_walk:
+    lda #12
+    sta $d021
+    ldx #houseSpriteData/64
+    stx SPRITEPTR+1
+    inx
+    stx SPRITEPTR+2
+    inx
+    stx SPRITEPTR+3
+    inx
+    stx SPRITEPTR+4
+
+    lda #walkSpriteData/64
+    clc
+    adc walkOffset
+    sta SPRITEPTR
+    ldx walkFrame
+    dex
+    bne !+
+    {
+        ldx walkOffset
+        inx
+        cpx #3
+        bne !+
+        ldx #0
+    !:
+        stx walkOffset
+        ldx #walkSpeed
+    }
+!:
+    stx walkFrame
+    lda #0
+    sta $d027
+    sta $d028
+    sta $d029
+    sta $d02a
+    sta $d02b
+    lda #$1e
+    ldx walkPos+1
+    bpl !+
+    ora #$01
+!:
+    sta $d010
+    txa
+    asl
+    sta $d000
+    lda walkPos
+    rol
+    rol
+    and #1
+    ora $d000
+    sta $d000
+    lda walkPos
+    clc
+    adc #42
+    sta walkPos
+    bcc !+
+    inc walkPos+1
+!:
+    lda #133
+    sta $d001
+.const housexpos2 = 40
+.const houseypos2 = 118
+    lda #housexpos2
+    sta $d002
+    sta $d006
+    lda #housexpos2+24
+    sta $d004
+    sta $d008
+    lda #houseypos2
+    sta $d003
+    sta $d005
+    lda #houseypos2+21
+    sta $d007
+    sta $d009
+    lda #$1f
+    sta $d015
+    rts
+
 spritePos:
     .const baseX = 160
     .const baseY = 106
@@ -472,7 +564,8 @@ scene_ptr:
 scene_index:
     .byte 1,1,1,1,3,4,6
     .fill 12, [5,5,2,3,4]
-    .fill 9, 5  // BREAK
+    .fill 4, 10 // BREAK
+    .fill 5, 5  // BREAK
     .fill 1, 5 // BREAK
     .fill 4, [3,4]
     .fill 4, [7,8] // propaganda 2
@@ -503,10 +596,10 @@ scene_duration:
 
 scene_table_lo:
     .byte <scene_end, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj, <scene_fillscreen
-    .byte <scene_syringe, <scene_cv, <scene_end
+    .byte <scene_syringe, <scene_cv, <scene_end, <scene_walk
 scene_table_hi:
     .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
-    .byte >scene_syringe, >scene_cv, >scene_end
+    .byte >scene_syringe, >scene_cv, >scene_end, >scene_walk
 
 sinpos:
     .byte 0
@@ -543,7 +636,6 @@ pjfswSpriteData:
 
 siddemicSpriteData:
     fill_sprite(siddemic, 4, 0)
-
 houseSpriteData:
     fill_sprite(house, 2, 0)
     fill_sprite(house, 2, 1)
@@ -551,6 +643,8 @@ syringeSpriteData:
     fill_sprite(syringe, 1, 0)
 cvSpriteData:
     fill_sprite(cv, 1, 0)
+walkSpriteData:
+    fill_sprite(walk, 3, 0)
 
 *=$02 "Zeropage" virtual
 .zp {
