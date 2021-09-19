@@ -9,6 +9,7 @@
 .var syringe = LoadPicture("syringe.png", PAL)
 .var cv = LoadPicture("cv.png", PAL)
 .var walk = LoadPicture("walk.png", PAL)
+.var face = LoadPicture("face.png", PAL)
 
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
@@ -38,22 +39,6 @@ spriteOn:
     lda #0
     sta $d01c
     sta $d010
-    lda #$c0
-    sta $d01d
-    sta $d017
-
-/*    ldx #spriteData/64
-    stx SPRITEPTR
-    inx
-    stx SPRITEPTR+1
-    inx
-    stx SPRITEPTR+2
-    inx
-    stx SPRITEPTR+3*/
-    ldx #pjfswSpriteData/64
-    stx SPRITEPTR+6
-    inx
-    stx SPRITEPTR+7
 
     rts
 
@@ -305,6 +290,11 @@ scene_dj:
     rts
 
 scene_pjfsw:
+    ldx #pjfswSpriteData/64
+    stx SPRITEPTR+6
+    inx
+    stx SPRITEPTR+7
+
     ldx sinpos
     inx
     stx sinpos
@@ -322,6 +312,10 @@ scene_pjfsw:
     lda background_color,x
     sta $d02d
     sta $d02e
+    lda #$c0
+    sta $d01d
+    sta $d017
+
     lda #$c0
     sta $d015
     rts
@@ -429,11 +423,13 @@ scene_cv:
 walkOffset:
     .byte 0
 walkFrame:
-    .byte walkSpeed
+    .byte walkSpeed-2
 walkPos:
-    .word 0
+    .word $0400
+
 scene_walk:
-    lda #12
+    ldx walkPos+1
+    lda walkBackgroundTable,x
     sta $d021
     ldx #houseSpriteData/64
     stx SPRITEPTR+1
@@ -511,6 +507,65 @@ scene_walk:
     sta $d015
     rts
 
+stareColorPtr:
+    .word 0
+scene_stare:
+    .for (var i = 0; i < 6; i++) {
+        ldx #(faceSpriteData/64)+i
+        stx SPRITEPTR+i
+    }
+    ldx #faceSpriteData/64+7
+    stx SPRITEPTR+6
+
+    lda #0
+    sta $d017
+    sta $d01d
+
+    ldx stareColorPtr+1
+    lda stareBackgroundTable,x
+    sta $d021
+    lda stareColorPtr
+    clc
+    adc #$80
+    sta stareColorPtr
+    bcc !+
+    inc stareColorPtr+1
+!:
+    lda #0
+    sta $d027
+    sta $d028
+    sta $d029
+    sta $d02a
+    sta $d02b
+    sta $d02c
+    sta $d02d
+.const facex = 148
+.const facey = 100
+    lda #facex
+    sta $d000
+    sta $d006
+    lda #facex+24
+    sta $d002
+    sta $d008
+    sta $d00c
+    lda #facex+48
+    sta $d004
+    sta $d00a
+    lda #facey
+    sta $d001
+    sta $d003
+    sta $d005
+    lda #facey+21
+    sta $d007
+    sta $d009
+    sta $d00b
+    lda #facey+42
+    sta $d00d
+    lda #$7f
+    sta $d015
+
+    rts
+
 spritePos:
     .const baseX = 160
     .const baseY = 106
@@ -565,7 +620,8 @@ scene_index:
     .byte 1,1,1,1,3,4,6
     .fill 12, [5,5,2,3,4]
     .fill 4, 10 // BREAK
-    .fill 5, 5  // BREAK
+    .fill 2, 11 // Stare
+    .fill 3, 5  // BREAK
     .fill 1, 5 // BREAK
     .fill 4, [3,4]
     .fill 4, [7,8] // propaganda 2
@@ -596,10 +652,10 @@ scene_duration:
 
 scene_table_lo:
     .byte <scene_end, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj, <scene_fillscreen
-    .byte <scene_syringe, <scene_cv, <scene_end, <scene_walk
+    .byte <scene_syringe, <scene_cv, <scene_end, <scene_walk, <scene_stare
 scene_table_hi:
     .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
-    .byte >scene_syringe, >scene_cv, >scene_end, >scene_walk
+    .byte >scene_syringe, >scene_cv, >scene_end, >scene_walk, >scene_stare
 
 sinpos:
     .byte 0
@@ -645,6 +701,31 @@ cvSpriteData:
     fill_sprite(cv, 1, 0)
 walkSpriteData:
     fill_sprite(walk, 3, 0)
+faceSpriteData:
+    fill_sprite(face, 3, 0)
+    fill_sprite(face, 3, 1)
+    fill_sprite(face, 2, 2)
+.print "End of sprites at " + *
+walkBackgroundTable:
+    .byte 0,0,0,0,0,$0,$b,$9
+    .fill 118,$c
+    .byte 4,2,9
+    .fill 20,0
+    // 3 e 4 b 6
+stareBackgroundTable:
+    .byte 0,$6,$b,$4,$c
+    .for (var i = 0; i < 7; i++) {
+        .fill 8,$3
+        .byte $e,4,$b
+        .fill 9,$6
+        .byte $b,$4,$e,$3
+    }
+    .for (var i = 0; i < 3; i++) {
+        .byte 6,6
+        .byte 3,3
+    }
+    .byte 4,$c,$3,$d
+    .fill 16,1
 
 *=$02 "Zeropage" virtual
 .zp {
