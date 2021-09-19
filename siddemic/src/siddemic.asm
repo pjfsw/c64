@@ -1,9 +1,13 @@
 .var music = LoadSid("siddemic_house.sid")
-.var dj = LoadPicture("dj.png", List().add($ffffff,$000000))
-.var djgear = LoadPicture("djgear.png", List().add($ffffff, $000000))
-.var pjfsw = LoadPicture("pjfsw.png", List().add($ffffff, $000000));
-.var siddemic = LoadPicture("siddemic.png", List().add($ffffff, $000000));
-.var house = LoadPicture("house.png", List().add($ffffff, $000000));
+.const PAL = List().add($ffffff,$000000)
+
+.var dj = LoadPicture("dj.png", PAL)
+.var djgear = LoadPicture("djgear.png", PAL)
+.var pjfsw = LoadPicture("pjfsw.png", PAL)
+.var siddemic = LoadPicture("siddemic.png", PAL)
+.var house = LoadPicture("house.png", PAL);
+.var syringe = LoadPicture("syringe.png", PAL)
+.var cv = LoadPicture("cv.png", PAL)
 
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
@@ -71,7 +75,7 @@ initMemory:
     lda #$01
     sta $d01a   // Raster IRQ enable
 
-    lda #$fe // Raster Y position
+    lda #$f9 // Raster Y position
     sta $d012
 
     lda #$1b    // 25 rows
@@ -164,9 +168,9 @@ scene_end:
 
 .const row = 6
 fillscreen_lo:
-    .byte <getRow(row), <getRow(row+1), <getRow(row+2), <getRow(row+3), <getRow(row+4), <getRow(row+5), <getRow(row+6)
+    .fill 7, <getRow(row+i)
 fillscreen_hi:
-    .byte >getRow(row), >getRow(row+1), >getRow(row+2), >getRow(row+3), >getRow(row+4), >getRow(row+5), >getRow(row+6)
+    .fill 7, >getRow(row+i)
 fillscreen_pos:
     .byte 7
 
@@ -317,6 +321,9 @@ scene_pjfsw:
     rts
 
 scene_siddemic:
+    lda #0
+    sta $d021
+
     ldx #siddemicSpriteData/64
     stx SPRITEPTR
     inx
@@ -349,6 +356,9 @@ scene_siddemic:
     rts
 
 scene_house:
+    lda #0
+    sta $d021
+
     ldx #houseSpriteData/64
     stx SPRITEPTR
     inx
@@ -362,7 +372,7 @@ scene_house:
     sta $d028
     sta $d029
     sta $d02a
-.const house_x = 144
+.const house_x = 164
     lda #100
     sta $d001
     sta $d003
@@ -379,6 +389,36 @@ scene_house:
     sta $d015
     rts
 
+scene_syringe:
+    ldx #syringeSpriteData/64
+    stx SPRITEPTR
+    lda #15
+    sta $d027
+    lda #172-16
+    sta $d000
+    lda #100
+    sta $d001
+    lda #0
+    sta $d021
+    lda #1
+    sta $d015
+    rts
+
+scene_cv:
+    ldx #cvSpriteData/64
+    stx SPRITEPTR
+    lda #7
+    sta $d027
+    lda #172+16
+    sta $d000
+    lda #100
+    sta $d001
+    lda #0
+    sta $d021
+    lda #1
+    sta $d015
+    rts
+
 spritePos:
     .const baseX = 160
     .const baseY = 106
@@ -387,7 +427,7 @@ spritePos:
     .byte baseX-8, baseY+27, baseX+24-8, baseY+27
 
 lighting_frame:
-    .byte 3
+    .byte 6
 anim_frame:
     .byte 1
 anim:
@@ -431,17 +471,42 @@ scene_ptr:
 
 scene_index:
     .byte 1,1,1,1,3,4,6
-    .fill 4, [5,5,2,3,4]
+    .fill 12, [5,5,2,3,4]
+    .fill 9, 5  // BREAK
+    .fill 1, 5 // BREAK
+    .fill 4, [3,4]
+    .fill 4, [7,8] // propaganda 2
+    .fill 15, [3,9] // buildup1
+    .fill 1, [4]   // buildup2
+
+    // BLIRPA
+    .fill 4, [3,4,5,3,4,2,5]
+
+    .fill 8, 5
     .byte 0
 scene_duration:
     .byte HP,HP,HP,HP-8*BT,4*BT, 3*BT, BT
-    .fill 4, [HP, HP - 8*BT,4*BT,2*BT, 2*BT]
+    .fill 12, [HP, HP - 8*BT,4*BT,2*BT, 2*BT]
+    .fill 9, HP // BREAK
+    .fill 1, QP
+    .fill 4, [BT/2, BT/2]
+    .fill 4, [BT/2,BT/2] // propaganda 2
+    .fill 15, [BT/4, BT/4] // buildup1
+    .fill 1, [BT]    // buildup2
+
+    // BLIRPA
+    .fill 4, [BT/2, BT/2, BT/2, BT/2, BT, 5*BT, QP]
+
+    .fill 8, HP
     .byte 0
+.print "Scene table length" + (*-scene_duration)
 
 scene_table_lo:
     .byte <scene_end, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj, <scene_fillscreen
+    .byte <scene_syringe, <scene_cv, <scene_end
 scene_table_hi:
     .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
+    .byte >scene_syringe, >scene_cv, >scene_end
 
 sinpos:
     .byte 0
@@ -463,6 +528,7 @@ sintable:
 }
 
 .align $40
+* = * "Sprite data"
 spriteData:
     .for (var i = 0; i < 4; i++) {
         fill_sprite(dj, 2, i);
@@ -481,6 +547,10 @@ siddemicSpriteData:
 houseSpriteData:
     fill_sprite(house, 2, 0)
     fill_sprite(house, 2, 1)
+syringeSpriteData:
+    fill_sprite(syringe, 1, 0)
+cvSpriteData:
+    fill_sprite(cv, 1, 0)
 
 *=$02 "Zeropage" virtual
 .zp {
