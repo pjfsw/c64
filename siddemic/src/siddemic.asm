@@ -672,7 +672,9 @@ scene_ptr:
 
 scene_index:
     .byte 1,1,1,1,3,4,6
-    .fill 12, [5,5,2,3,4]
+    .fill 11, [5,5,2,3,4]
+    .byte 5
+    .fill 12, [3,4]
     .fill 4, 10 // BREAK
     .fill 2, 11 // Stare
     .fill 3, 5  // BREAK
@@ -690,7 +692,10 @@ scene_index:
     .byte 0
 scene_duration:
     .byte HP,HP,HP,HP-8*BT,4*BT, 3*BT, BT
-    .fill 12, [HP, HP - 8*BT,4*BT,2*BT, 2*BT]
+    .fill 11, [HP, HP - 8*BT,4*BT,2*BT, 2*BT]
+    .byte HP
+    .fill 4, [BT, BT]
+    .fill 8, [BT/2, BT/2]
     .fill 9, HP // BREAK
     .fill 1, QP
     .fill 4, [BT/2, BT/2]
@@ -699,7 +704,7 @@ scene_duration:
     .fill 1, [BT]    // buildup2
 
     // BLIRPA
-    .fill 4, [BT/2, BT/2, BT/2, BT/2, BT, 5*BT, QP]
+    .fill 4, [BT/2, BT/2, BT/2, BT/2, 2*BT, 4*BT, QP]
 
     .fill 8, HP
     .fill 8, HP
