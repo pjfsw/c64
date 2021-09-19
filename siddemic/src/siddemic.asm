@@ -10,6 +10,7 @@
 .var cv = LoadPicture("cv.png", PAL)
 .var walk = LoadPicture("walk.png", PAL)
 .var face = LoadPicture("face.png", PAL)
+.var flying = LoadPicture("flying.png", PAL)
 
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
@@ -303,7 +304,7 @@ scene_pjfsw:
     clc
     adc #48
     sta $d00e
-    lda #$50
+    lda #$60
     sta $d00d
     sta $d00f
     lda #0
@@ -566,6 +567,59 @@ scene_stare:
 
     rts
 
+scene_flying:
+    lda flying_anim+1
+    and #3
+    clc
+    adc #flyingSpriteData/64
+    sta SPRITEPTR
+    lda flying_x+1
+    bpl !+
+    ldx #1
+    stx $d010
+!:
+    asl
+    sta $d000
+    lda flying_x
+    rol
+    rol
+    and #1
+    ora $d000
+    sta $d000
+
+    lda #100
+    sta $d001
+    lda #4
+    sta $d021
+    lda #0
+    sta $d027
+
+    clc
+    lda flying_x
+    adc #$1c
+    sta flying_x
+    bcc !+
+    inc flying_x+1
+!:
+
+    clc
+    lda flying_anim
+    adc #$30
+    sta flying_anim
+    bcc !+
+    inc flying_anim+1
+!:
+
+    lda #$01
+    sta $d015
+
+    rts
+
+flying_x:
+    .word 0
+flying_anim:
+    .word 0
+
 spritePos:
     .const baseX = 160
     .const baseY = 106
@@ -632,6 +686,7 @@ scene_index:
     .fill 4, [3,4,5,3,4,2,5]
 
     .fill 8, 5
+    .fill 8, 12
     .byte 0
 scene_duration:
     .byte HP,HP,HP,HP-8*BT,4*BT, 3*BT, BT
@@ -647,15 +702,16 @@ scene_duration:
     .fill 4, [BT/2, BT/2, BT/2, BT/2, BT, 5*BT, QP]
 
     .fill 8, HP
+    .fill 8, HP
     .byte 0
 .print "Scene table length" + (*-scene_duration)
 
 scene_table_lo:
     .byte <scene_end, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj, <scene_fillscreen
-    .byte <scene_syringe, <scene_cv, <scene_end, <scene_walk, <scene_stare
+    .byte <scene_syringe, <scene_cv, <scene_end, <scene_walk, <scene_stare, <scene_flying
 scene_table_hi:
     .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
-    .byte >scene_syringe, >scene_cv, >scene_end, >scene_walk, >scene_stare
+    .byte >scene_syringe, >scene_cv, >scene_end, >scene_walk, >scene_stare, >scene_flying
 
 sinpos:
     .byte 0
@@ -705,6 +761,9 @@ faceSpriteData:
     fill_sprite(face, 3, 0)
     fill_sprite(face, 3, 1)
     fill_sprite(face, 2, 2)
+flyingSpriteData:
+    fill_sprite(flying, 4, 0)
+
 .print "End of sprites at " + *
 walkBackgroundTable:
     .byte 0,0,0,0,0,$0,$b,$9
