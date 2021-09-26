@@ -15,6 +15,8 @@
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
 
+.const IRQ1_LINE = $63
+.const IRQ2_LINE = $89
 .const IRQ_LINE = $f9
 
 BasicUpstart2(programStart)
@@ -29,7 +31,8 @@ programStart:
     jsr initMemory
     lda #0
     jsr music.init
-    jsr spriteOn
+    lda #0
+    sta $d01c
     lda #<nmi
     sta $fffa
     lda #>nmi
@@ -41,13 +44,6 @@ programStart:
     cli
     jmp *
 
-spriteOn:
-    lda #0
-    sta $d01c
-    sta $d010
-
-    rts
-
 initMemory:
     sei
 
@@ -57,7 +53,6 @@ initMemory:
     lda #$7f    // Clear CIA interrupts
     sta $dc0d
     sta $dd0d
-    lda $dc0d   // Clear pending interrupts by reading it
     lda $dd0d
 
     lda #$01
