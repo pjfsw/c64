@@ -6,8 +6,6 @@
 .var pjfsw = LoadPicture("pjfsw.png", PAL)
 .var siddemic = LoadPicture("siddemic.png", PAL)
 .var house = LoadPicture("house.png", PAL);
-.var syringe = LoadPicture("syringe.png", PAL)
-.var cv = LoadPicture("cv.png", PAL)
 .var walk = LoadPicture("walk.png", PAL)
 .var face = LoadPicture("face.png", PAL)
 .var flying = LoadPicture("flying.png", PAL)
@@ -390,36 +388,6 @@ scene_house:
     sta $d015
     rts
 
-scene_syringe:
-    ldx #syringeSpriteData/64
-    stx SPRITEPTR
-    lda #15
-    sta $d027
-    lda #172-16
-    sta $d000
-    lda #100
-    sta $d001
-    lda #0
-    sta $d021
-    lda #1
-    sta $d015
-    rts
-
-scene_cv:
-    ldx #cvSpriteData/64
-    stx SPRITEPTR
-    lda #7
-    sta $d027
-    lda #172+16
-    sta $d000
-    lda #100
-    sta $d001
-    lda #0
-    sta $d021
-    lda #1
-    sta $d015
-    rts
-
 .const walkSpeed=8
 walkOffset:
     .byte 0
@@ -716,10 +684,10 @@ scene_duration:
 
 scene_table_lo:
     .byte <scene_end, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj, <scene_fillscreen
-    .byte <scene_syringe, <scene_cv, <scene_end, <scene_walk, <scene_stare, <scene_flying
+    .byte <scene_end, <scene_end, <scene_end, <scene_walk, <scene_stare, <scene_flying
 scene_table_hi:
     .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
-    .byte >scene_syringe, >scene_cv, >scene_end, >scene_walk, >scene_stare, >scene_flying
+    .byte >scene_end, >scene_end, >scene_end, >scene_walk, >scene_stare, >scene_flying
 
 *=music.location "Music"
     .fill music.size, music.getData(i)
@@ -760,10 +728,6 @@ siddemicSpriteData:
 houseSpriteData:
     fill_sprite(house, 2, 0)
     fill_sprite(house, 2, 1)
-syringeSpriteData:
-    fill_sprite(syringe, 1, 0)
-cvSpriteData:
-    fill_sprite(cv, 1, 0)
 walkSpriteData:
     fill_sprite(walk, 3, 0)
 faceSpriteData:
