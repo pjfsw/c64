@@ -319,74 +319,77 @@ scene_pjfsw:
     sta $d015
     rts
 
+
+draw_static_sprite:
+    ldy #0
+!:
+    lda (screen_ptr),y
+    sta SPRITEPTR,y
+    iny
+    cpy #8
+    bne !-
+!:
+    lda (screen_ptr),y
+    sta $d000-8,y
+    iny
+    cpy #8+17
+    bne !-
+
+    lda (screen_ptr),y
+    sta $d015
+    iny
+    lda (screen_ptr),y
+    sta $d017
+    iny
+    lda (screen_ptr),y
+    sta $d01d
+    iny
+    lda (screen_ptr),y
+    ldx #7
+!:
+    sta $d027,x
+    dex
+    bpl !-
+    rts
+
+
 scene_siddemic:
     lda #0
     sta $d021
 
-    ldx #siddemicSpriteData/64
-    stx SPRITEPTR
-    inx
-    stx SPRITEPTR+1
-    inx
-    stx SPRITEPTR+2
-    inx
-    stx SPRITEPTR+3
-    lda #6
-    sta $d027
-    sta $d028
-    sta $d029
-    sta $d02a
-.const siddemic_x = 136
-    lda #100
-    sta $d001
-    sta $d003
-    sta $d005
-    sta $d007
-    lda #siddemic_x
-    sta $d000
-    lda #siddemic_x+24
-    sta $d002
-    lda #siddemic_x+48
-    sta $d004
-    lda #siddemic_x+72
-    sta $d006
-    lda #$0f
-    sta $d015
-    rts
+    lda #<siddemic_sprite_registers
+    sta screen_ptr
+    lda #>siddemic_sprite_registers
+    sta screen_ptr+1
+    jmp draw_static_sprite
+
+siddemic_sprite_registers:
+    .fill 8,(siddemicSpriteData/64)+i
+    .fill 4, [136+i*24, 100]    // Sprite 0-3
+    .fill 9, 0                  // Sprite 4-7 + high byte
+    .byte %00001111             // Sprite enable
+    .word 0                     // Width & height
+    .byte 6 // color
+
+house_sprite_registers:
+    .fill 8,(houseSpriteData/64)+i
+    .fill 2, [164+i*24, 100]    // Sprite 0-1
+    .fill 2, [164+i*24, 121]    // Sprite 2-3
+    .fill 9, 0                  // Sprite 4-7 + high byte
+    .byte %00001111             // Sprite enable
+    .word 0                     // Width & height
+    .byte 4 // color
+
 
 scene_house:
     lda #0
     sta $d021
 
-    ldx #houseSpriteData/64
-    stx SPRITEPTR
-    inx
-    stx SPRITEPTR+1
-    inx
-    stx SPRITEPTR+2
-    inx
-    stx SPRITEPTR+3
-    lda #4
-    sta $d027
-    sta $d028
-    sta $d029
-    sta $d02a
-.const house_x = 164
-    lda #100
-    sta $d001
-    sta $d003
-    lda #121
-    sta $d005
-    sta $d007
-    lda #house_x
-    sta $d000
-    sta $d004
-    lda #house_x+24
-    sta $d002
-    sta $d006
-    lda #$0f
-    sta $d015
-    rts
+    lda #<house_sprite_registers
+    sta screen_ptr
+    lda #>house_sprite_registers
+    sta screen_ptr+1
+    jmp draw_static_sprite
 
 .const walkSpeed=8
 walkOffset:
@@ -476,6 +479,27 @@ scene_walk:
     sta $d015
     rts
 
+
+// 8 bytes sprite pointers
+// 17 bytes $d000-$d010
+// 1 byte $d015 sprite enable
+// 1 byte $d017 double height
+// 1 byte $d01d double width
+// 1 byte sprite color
+stare_sprite_registers:
+    .fill 6, (faceSpriteData/64)+i
+    .byte (faceSpriteData/64)+7, 0
+    .fill 3, [148+i*24,100]  // sprites 0-2
+    .fill 3, [148+i*24,121]  // sprites 3-5
+    .fill 1, [148+1*24,142]  // sprite 6
+    .byte 0,0,0              // sprite 7 + high byte
+    .byte %01111111          // sprite enable
+    .byte 0,0                // sprite size
+    .byte BLACK
+
+
+
+
 stareColorPtr:
     .word 0
 scene_stare:
@@ -500,40 +524,12 @@ scene_stare:
     bcc !+
     inc stareColorPtr+1
 !:
-    lda #0
-    sta $d027
-    sta $d028
-    sta $d029
-    sta $d02a
-    sta $d02b
-    sta $d02c
-    sta $d02d
-.const facex = 148
-.const facey = 100
-    lda #facex
-    sta $d000
-    sta $d006
-    lda #facex+24
-    sta $d002
-    sta $d008
-    sta $d00c
-    lda #facex+48
-    sta $d004
-    sta $d00a
-    lda #facey
-    sta $d001
-    sta $d003
-    sta $d005
-    lda #facey+21
-    sta $d007
-    sta $d009
-    sta $d00b
-    lda #facey+42
-    sta $d00d
-    lda #$7f
-    sta $d015
+    lda #<stare_sprite_registers
+    sta screen_ptr
+    lda #>stare_sprite_registers
+    sta screen_ptr+1
+    jmp draw_static_sprite
 
-    rts
 
 scene_flying:
     lda flying_anim+1
@@ -684,6 +680,7 @@ scene_duration:
 
 scene_table_lo:
     .byte <scene_end, <scene_intro, <scene_pjfsw, <scene_siddemic, <scene_house, <scene_dj, <scene_fillscreen
+    // 7-8 can be reused!
     .byte <scene_end, <scene_end, <scene_end, <scene_walk, <scene_stare, <scene_flying
 scene_table_hi:
     .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
