@@ -15,6 +15,7 @@
 .const SCREEN = $400
 .const SPRITEPTR = SCREEN+$3f8
 
+.const IRQ_LINE = $f9
 
 BasicUpstart2(programStart)
     *=$080e
@@ -29,6 +30,10 @@ programStart:
     lda #0
     jsr music.init
     jsr spriteOn
+    lda #<nmi
+    sta $fffa
+    lda #>nmi
+    sta $fffb
     lda #<irq
     sta $fffe
     lda #>irq
@@ -58,7 +63,7 @@ initMemory:
     lda #$01
     sta $d01a   // Raster IRQ enable
 
-    lda #$f9 // Raster Y position
+    lda #IRQ_LINE // Raster Y position
     sta $d012
 
     lda #$1b    // 25 rows
@@ -88,7 +93,6 @@ initMemory:
     bne !-
 
     rts
-
 
 irq:
     sta a_temp
@@ -138,6 +142,7 @@ irq:
     stx lighting_frame
 
     asl $d019
+
     lda a_temp:#0
     ldx x_temp:#0
     ldy y_temp:#0
@@ -615,6 +620,9 @@ scene_flying:
 
     rts
 
+nmi:
+    rti
+
 flying_x:
     .word 0
 flying_anim:
@@ -718,13 +726,14 @@ scene_table_hi:
     .byte >scene_end, >scene_intro, >scene_pjfsw, >scene_siddemic, >scene_house, >scene_dj, >scene_fillscreen
     .byte >scene_syringe, >scene_cv, >scene_end, >scene_walk, >scene_stare, >scene_flying
 
+*=music.location "Music"
+    .fill music.size, music.getData(i)
+
 sinpos:
     .byte 0
 sintable:
     .fill 256,130+32*sin(i*PI/32)
 
-*=music.location "Music"
-    .fill music.size, music.getData(i)
 
 .macro fill_sprite(img, w, yofs) {
     .for (var i = 0; i < w; i++) {
