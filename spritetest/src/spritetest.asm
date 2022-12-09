@@ -265,26 +265,26 @@ multiplexedSprites:
 
 // RED = TOP
 // BLACK, WHITE, YELLOW = BOTTOM
-
 .const c_red = $ff0000
 .const c_white = $ffffff
 .const c_yellow = $ffff00
 .const c_black = $000000
 
 .var img = LoadPicture("spr24x24x4.png")
+.var img_offset = List().add(0, 3, 3, 3)
+.var img_colors = List().add(c_red, c_black, c_white, c_yellow)
 
-.macro load_24x24(spr,xofs,yofs) {
-    .var c_list = List().add(c_red, c_black, c_white, c_yellow)
-    .var offset = List().add(0, 3, 3, 3)
+.macro load_24x24(spr,xofs,yofs,c_list,offset) {
     .var c = 0
-
+    .var xx = 0
     .for (var i = 0; i < 4; i++) {
         .for (var y = 0; y < 21; y++) {
             .for (var b = 0; b < 3; b++) {
                 .var a_byte = 0
                 .for (var x = 0; x < 8; x++) {
                     .eval c = spr.getPixel(b*8+x+xofs,y + offset.get(i)+yofs)
-                    .if (c == c_list.get(i)) {
+                    .eval xx = c_list.get(i)
+                    .if (c == xx) {
                         .eval a_byte = a_byte | (1<<(7-x))
                     }
                 }
@@ -317,12 +317,12 @@ animations:
 * = * "Sprite data"
 animationDown:
     .for (var i = 0; i < 4; i++) {
-        load_24x24(img,0,i*24)
+        load_24x24(img,0,i*24,img_colors,img_offset)
     }
 * = $2000
 * = * "Sprite data II "
 animationUp:
     .for (var i = 0; i < 4; i++) {
-        load_24x24(img,0,(i+4)*24)
+        load_24x24(img,0,(i+4)*24,img_colors,img_offset)
     }
 
