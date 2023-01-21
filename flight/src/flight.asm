@@ -3,6 +3,8 @@
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
+    .const FG_COLOR = 6
+    .const CHAR_COLOR = 5
     .const DEBUG_COLOR1 = 11
     .const DEBUG_COLOR2 = 12
     .const TILE_WIDTH = 4
@@ -11,6 +13,8 @@
     .const FIXED_POINT = 8
     .const CHAR_HEIGHT = 8 // Well this is never gonna change but might as well constant it for readability
     .const CHAR_SUBPIXEL_SIZE = FIXED_POINT * CHAR_HEIGHT
+    .const MAP_LENGTH = 200
+    .const BOTTOM_TILE_AT_END = MAP_LENGTH - 24/TILE_HEIGHT
 
 BasicUpstart2(program_start)
     *=$080e
@@ -25,6 +29,20 @@ program_start:
     cli
     jmp *
 
+level_clear_irq: {
+    sta save_a
+    stx save_x
+    sty save_y
+    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
+    sta $d019
+
+    lda save_a:#0
+    ldy save_y:#0
+    ldx save_x:#0
+    rti
+}
+
+
 irq: {
     sta save_a
     stx save_x
@@ -36,6 +54,16 @@ irq: {
     lda #DEBUG_COLOR2
     sta $d020
     jsr update_screen
+
+    lda bottom+1
+    cmp #BOTTOM_TILE_AT_END
+    bne !+
+    lda #<level_clear_irq
+    sta $fffe
+    lda #>level_clear_irq
+    sta $ffff
+!:
+
     lda #BORDER_COLOR
     sta $d020
 
@@ -64,7 +92,8 @@ update_screen:
     add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 !:
-    jmp draw_tiles
+    jsr draw_tiles
+    rts
 
 update_hud:
     lda #hud_sprite/64
@@ -177,9 +206,22 @@ draw_tiles:
 }
 
 setup_screen:
+    lda #FG_COLOR
+    sta $d021
     ldx scroll
     lda d011,x
     sta $d011
+
+    lda #CHAR_COLOR
+    ldx #0
+!:
+    sta $d800,x
+    sta $d900,x
+    sta $da00,x
+    sta $db00,x
+    inx
+    bne !-
+
 
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 
@@ -200,12 +242,59 @@ hud_sprite:
 
 .align $100
 // LEVEL DATA. 4x4 tiles = 10 tiles per row
-tiledata: .fill 256,i/16
+tiledata:
+  .fill 16,$20
+
+  .byte $20,$66,$66,$20
+  .byte $66,$dc,$a0,$5c
+  .byte $66,$a0,$a0,$5c
+  .byte $20,$68,$68,$20
+
+  .fill 16,$20
+  .fill 16,$20
+
+  .fill 4,[$a0,$5c,$20,$20]
+  .fill 4,[$a0,$66,$20,$20]
+  .fill 4,[$20,$20,$66,$a0]
+  .fill 4,[$20,$66,$a0,$a0]
+
+  .byte $4a,$40,$40,$4b
+  .byte $42,$20,$20,$42
+  .byte $42,$20,$20,$42
+  .byte $55,$40,$40,$49
+
+  .byte $6d,$40,$40,$7d
+  .byte $42,$20,$20,$42
+  .byte $42,$20,$20,$42
+  .byte $70,$40,$40,$6e
+
+  .byte $20,$20,$20,$5f
+  .byte $20,$20,$5f,$a0
+  .byte $20,$5f,$a0,$a0
+  .byte $5f,$a0,$a0,$a0
+tiledata_manual_end:
+ .fill 256-(tiledata_manual_end-tiledata),i/16
 tile_no_to_tile_offset: .fill 16,i*16
 
-levelmap: .fill 256 * TILES_PER_ROW,i & 15 // 256 tile rows * 10 tile cols, only 16 tiles supported for now
-y_to_levelmap_lo: .fill 256,<(levelmap + i * TILES_PER_ROW)
-y_to_levelmap_hi: .fill 256,>(levelmap + i * TILES_PER_ROW)
+levelmap:
+    .for (var n = 0; n < MAP_LENGTH; n++) {
+        .byte 4+(n&1) // left Shore
+        .for (var n = 1; n < 9; n++) {
+            .var r = floor(8 * random())
+            .if (r == 0) {
+                .byte $1
+            } else {
+                .byte $0
+            }
+        }
+        .byte 6+(n&1)
+    }
+
+.fill MAP_LENGTH/2,[4,0,0,0,0,0,0,0,0,6,5,0,0,0,0,0,0,0,0,7]
+y_to_levelmap_lo: .fill MAP_LENGTH,<(levelmap + i * TILES_PER_ROW)
+.byte 255
+y_to_levelmap_hi: .fill MAP_LENGTH,>(levelmap + i * TILES_PER_ROW)
+.byte 255
 
 // 16 bit y-coord:
 // tttttttt TTyyynnn
