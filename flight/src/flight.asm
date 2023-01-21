@@ -5,6 +5,9 @@
     .const BORDER_COLOR = 0
     .const DEBUG_COLOR1 = 11
     .const DEBUG_COLOR2 = 12
+    .const TILE_WIDTH = 4
+    .const TILES_PER_ROW = 40/TILE_WIDTH
+    .const TILE_HEIGHT = 4
 
 BasicUpstart2(program_start)
     *=$080e
@@ -115,21 +118,38 @@ flip_screen:
     rts
 
 draw_tiles:
+{
     lda bottom_render
     tax
     sec
     sbc #ROWS_TO_RENDER_PER_FRAME
     sta bottom_render
-    txa
 
-!:
+!next_row:
     {
-        lda world,x
-        ldy #39
-    !:
-        sta (screen_ptr),y
-        dey
-        bpl !-
+        lda y_to_levelmap_lo,x
+        sta tile_to_render
+        lda y_to_levelmap_hi,x
+        sta tile_to_render+1
+
+        stx save_x
+        ldy #0
+        .for (var x = 0; x < TILES_PER_ROW; x++) {
+            sty save_y
+            ldy #x
+            lda (tile_to_render),y
+            tax
+            lda tile_no_to_tile_offset,x
+            tax
+            ldy save_y:#0
+
+            // Render tile
+            .for (var i = 0; i < TILE_WIDTH; i++) {
+                lda tiledata + i,x
+                sta (screen_ptr),y
+                iny
+            }
+        }
 
         clc
         lda #40
@@ -138,11 +158,15 @@ draw_tiles:
         bcc !+
         inc screen_ptr+1
     !:
+        ldx save_x:#0
     }
     dex
     cpx bottom_render
-    bne !-
+    beq !+
+    jmp !next_row-
+!:
     rts
+}
 }
 
 setup_screen:
@@ -169,9 +193,21 @@ setup_screen:
 hud_sprite:
     .fill 63,255
 
-// LEVEL DATA
-//tilemap: .fill 256,i/16
-world:  .fill 256,i
+.align $100
+// LEVEL DATA. 4x4 tiles = 10 tiles per row
+tiledata: .fill 256,i/16
+tile_no_to_tile_offset: .fill 16,i*16
+
+levelmap: .fill 256 * TILES_PER_ROW,i & 15 // 256 tile rows * 10 tile cols
+y_to_levelmap_lo: .fill 256,<(levelmap + i * TILES_PER_ROW)
+y_to_levelmap_hi: .fill 256,>(levelmap + i * TILES_PER_ROW)
+
+// 16 bit y-coord:
+// tttttttt TTyyynnn
+// t = tile no
+// T = row in tile data
+// y = pixel on screen (scroll)
+// n = 3-bit fixed point
 
 scroll: .byte 7
 bottom: .byte 0
@@ -186,4 +222,5 @@ frame: .byte 0
 *=$02 "Zeropage" virtual
 .zp {
     screen_ptr: .word 0
+    tile_to_render: .word 0
 }
