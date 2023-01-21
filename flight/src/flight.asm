@@ -24,7 +24,7 @@ program_start:
     sei
     ldx #<irq
     ldy #>irq
-    lda #$ec
+    lda #$ea
     jsr lib_setup_irq
     cli
     jmp *
@@ -54,6 +54,10 @@ irq: {
     lda #DEBUG_COLOR2
     sta $d020
     jsr update_screen
+    lda #DEBUG_COLOR1
+    sta $d020
+    jsr update_sprites
+    jsr update_anim
 
     lda bottom+1
     cmp #BOTTOM_TILE_AT_END
@@ -75,8 +79,71 @@ irq: {
     ldx save_x:#0
     rti
 
-update_screen:
+update_sprites:
+{
+    .for (var i = 0; i < 8; i++) {
+        // TODO FIX THIS
+        lda sprite_ptr + i
+        sta SCREEN + $3f8 + i
+        sta SCREEN2 + $3f8 + i
+    }
 
+    lda #$7f
+    sta $d015 // sprite enable
+    lda #0
+    sta $d01d // normal width
+
+    .for (var i = 0; i < 8; i++) {
+        lda sprite_x + i
+        sta $d000 + i * 2
+        lda sprite_y + i
+        sta $d001 + i * 2
+        lda sprite_color + i
+        sta $d027 + i // color
+    }
+
+    lda #0
+    sta $d010
+
+    rts
+}
+
+update_anim:
+    lda player_anim
+    eor #1
+    sta player_anim
+    clc
+    adc #player_sprite/64
+    sta sprite_ptr
+    rts
+
+update_hud:
+    lda #hud_sprite/64
+    .for (var i = 0; i < 7; i++) {
+        // TODO FIX THIS
+        sta SCREEN+$3f8 + i
+        sta SCREEN2+$3f8 + i
+    }
+
+    lda #238
+    ldx #BORDER_COLOR
+    .for (var i = 0; i < 7; i++) {
+        sta $d001 + i * 2
+        stx $d027 + i // color
+    }
+    .for (var i = 0; i < 7; i++) {
+        lda #i*48+24
+        sta $d000 + i * 2
+    }
+    lda #$60
+    sta $d010
+    lda #$7f
+    sta $d015 // sprite enable
+    sta $d01d // double width
+
+    rts
+
+update_screen:
     ldx scroll
     inx
     stx scroll
@@ -95,32 +162,6 @@ update_screen:
 !:
     jmp draw_tiles
 
-update_hud:
-    lda #hud_sprite/64
-hud_sprite_ptr_sta:
-    .for (var i = 0; i < 7; i++) {
-        sta SCREEN+$3f8+i
-    }
-    lda #238
-    ldx #BORDER_COLOR
-    .for (var i = 0; i < 7; i++) {
-        sta $d001 + i * 2
-        stx $d027 + i // color
-    }
-    .for (var i = 0; i < 7; i++) {
-        lda #i*48+24
-        sta $d000 + i * 2
-    }
-    lda #$60
-    sta $d010
-    lda #$7f
-    sta $d015 // sprite enable
-    sta $d01d // double width
-    lda #0
-    sta $d01b // sprite priority
-
-    rts
-
 flip_screen:
     lda screen_number
     eor #1
@@ -132,13 +173,6 @@ flip_screen:
     sta screen_ptr
     lda screen_hi,x
     sta screen_ptr+1
-
-    // Fix hud sprite ptr
-    clc
-    adc #3 // high byte $400 -> $700
-    .for (var i = 0; i < 7; i++) {
-        sta 2 + hud_sprite_ptr_sta + i * 3
-    }
 
     rts
 
@@ -205,6 +239,29 @@ draw_tiles:
 }
 
 setup_screen:
+    lda #0
+    sta $d01b // sprite priority
+
+    .for (var i = 0; i < 63; i++) {
+        lda player_sprite + i
+        .if (mod(i,6) >= 3) {
+            and #%10101010
+        } else {
+            and #%01010101
+        }
+        sta shadow_sprite + i
+    }
+
+    lda #172
+    sta sprite_x
+    lda #208
+    sta sprite_y
+
+    lda #176
+    sta sprite_x+1
+    lda #212
+    sta sprite_y+1
+
     lda #FG_COLOR
     sta $d021
     ldx scroll
@@ -233,10 +290,59 @@ setup_screen:
 #import "../../lib/src/irq.asm"
 #import "arithmetic.asm"
 
-// HUD DATA
+// SPRITE DATA
     .align 64
 hud_sprite:
-    .fill 63,255
+    .fill 64,255
+player_sprite:
+    .for (var i = 0; i < 2; i++) {
+        .byte %00000000
+         .if (i == 0) {
+            .byte %11111000
+        } else {
+            .byte %00011111
+        }
+        .byte %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00111100, %00000000
+        .byte %01111111,%11111111, %11111110
+        .byte %11111111,%11111111, %11111111
+        .byte %01111111,%11111111, %11111110
+        .byte %00011111,%11111111, %11111000
+        .byte %00000000,%00111100, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00011000, %00000000
+        .byte %00000000,%00111100, %00000000
+        .byte %00000000,%11111111, %00000000
+        .byte 0
+    }
+
+shadow_sprite:
+    .fill 64,0
+player_anim:
+    .byte 0
+
+sprite_ptr:
+    .byte player_sprite/64
+    .byte shadow_sprite/64
+    .fill 6,0
+sprite_x:
+    .fill 8,0
+sprite_y:
+    .fill 8,0
+sprite_x_hi:
+    .fill 8,0
+sprite_color:
+    .byte 1,0,0,0,0,0,0,0
 
 .align $100
 // LEVEL DATA. 4x4 tiles = 10 tiles per row
@@ -288,7 +394,6 @@ levelmap:
         .byte 6+(n&1)
     }
 
-.fill MAP_LENGTH/2,[4,0,0,0,0,0,0,0,0,6,5,0,0,0,0,0,0,0,0,7]
 y_to_levelmap_lo: .fill MAP_LENGTH,<(levelmap + i * TILES_PER_ROW)
 .byte 255
 y_to_levelmap_hi: .fill MAP_LENGTH,>(levelmap + i * TILES_PER_ROW)
@@ -315,6 +420,7 @@ frame: .byte 0
 *=$02 "Zeropage" virtual
 .zp {
     screen_ptr: .word 0
+    screen_sprite_ptr: .word 0
     tile_to_render: .word 0
     row_in_tile: .byte 0
 }
