@@ -76,6 +76,7 @@ irq: {
     rti
 
 update_screen:
+
     ldx scroll
     inx
     stx scroll
@@ -92,8 +93,7 @@ update_screen:
     add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 !:
-    jsr draw_tiles
-    rts
+    jmp draw_tiles
 
 update_hud:
     lda #hud_sprite/64
@@ -124,7 +124,6 @@ hud_sprite_ptr_sta:
 flip_screen:
     lda screen_number
     eor #1
-    and #1
     sta screen_number
     tax
     lda d018,x
@@ -136,7 +135,7 @@ flip_screen:
 
     // Fix hud sprite ptr
     clc
-    adc #3
+    adc #3 // high byte $400 -> $700
     .for (var i = 0; i < 7; i++) {
         sta 2 + hud_sprite_ptr_sta + i * 3
     }
@@ -221,7 +220,6 @@ setup_screen:
     sta $db00,x
     inx
     bne !-
-
 
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 
