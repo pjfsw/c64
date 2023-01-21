@@ -8,6 +8,9 @@
     .const TILE_WIDTH = 4
     .const TILES_PER_ROW = 40/TILE_WIDTH
     .const TILE_HEIGHT = 4
+    .const FIXED_POINT = 8
+    .const CHAR_HEIGHT = 8 // Well this is never gonna change but might as well constant it for readability
+    .const CHAR_SUBPIXEL_SIZE = FIXED_POINT * CHAR_HEIGHT
 
 BasicUpstart2(program_start)
     *=$080e
@@ -58,14 +61,8 @@ update_screen:
 
     jsr flip_screen
 
-    lda bottom
-    clc
-    adc #1
-    sta bottom  // The world position at the bottom of the sceren
-
-    adc #FRAMES_TO_RENDER_TILES*ROWS_TO_RENDER_PER_FRAME
-    sta bottom_render
-
+    add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
+    add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 !:
     jmp draw_tiles
 
@@ -120,19 +117,28 @@ flip_screen:
 draw_tiles:
 {
     lda bottom_render
-    tax
-    sec
-    sbc #ROWS_TO_RENDER_PER_FRAME
-    sta bottom_render
+    sta current_render
+    lda bottom_render+1
+    sta current_render+1
+
+    sub16(bottom_render, ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 
 !next_row:
     {
+        lda current_render
+        lsr // 0XXxxxxx
+        lsr // 00XXxxxx
+        lsr // 000XXxxx
+        lsr // 0000XXxx
+        and #$0c  // interested in bits 2-3 i.e. scale by 4
+        sta row_in_tile
+
+        ldx current_render+1 // vertical tile number
         lda y_to_levelmap_lo,x
         sta tile_to_render
         lda y_to_levelmap_hi,x
         sta tile_to_render+1
 
-        stx save_x
         ldy #0
         .for (var x = 0; x < TILES_PER_ROW; x++) {
             sty save_y
@@ -140,6 +146,8 @@ draw_tiles:
             lda (tile_to_render),y
             tax
             lda tile_no_to_tile_offset,x
+            clc
+            adc.z row_in_tile
             tax
             ldy save_y:#0
 
@@ -151,17 +159,16 @@ draw_tiles:
             }
         }
 
-        clc
-        lda #40
-        adc screen_ptr
-        sta screen_ptr
-        bcc !+
-        inc screen_ptr+1
-    !:
-        ldx save_x:#0
+        add8(screen_ptr, 40, screen_ptr)
+        sub8(current_render, CHAR_SUBPIXEL_SIZE, current_render)
     }
-    dex
-    cpx bottom_render
+    lda current_render
+    cmp bottom_render
+    beq !+
+    jmp !next_row-
+!:
+    lda current_render+1
+    cmp bottom_render+1
     beq !+
     jmp !next_row-
 !:
@@ -174,10 +181,7 @@ setup_screen:
     lda d011,x
     sta $d011
 
-    clc
-    lda bottom
-    adc #FRAMES_TO_RENDER_TILES*ROWS_TO_RENDER_PER_FRAME
-    sta bottom_render
+    add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 
     jsr irq.flip_screen
     .for (var i = 0; i < FRAMES_TO_RENDER_TILES; i++) {
@@ -187,6 +191,7 @@ setup_screen:
     rts
 
 #import "../../lib/src/irq.asm"
+#import "arithmetic.asm"
 
 // HUD DATA
     .align 64
@@ -198,7 +203,7 @@ hud_sprite:
 tiledata: .fill 256,i/16
 tile_no_to_tile_offset: .fill 16,i*16
 
-levelmap: .fill 256 * TILES_PER_ROW,i & 15 // 256 tile rows * 10 tile cols
+levelmap: .fill 256 * TILES_PER_ROW,i & 15 // 256 tile rows * 10 tile cols, only 16 tiles supported for now
 y_to_levelmap_lo: .fill 256,<(levelmap + i * TILES_PER_ROW)
 y_to_levelmap_hi: .fill 256,>(levelmap + i * TILES_PER_ROW)
 
@@ -210,17 +215,19 @@ y_to_levelmap_hi: .fill 256,>(levelmap + i * TILES_PER_ROW)
 // n = 3-bit fixed point
 
 scroll: .byte 7
-bottom: .byte 0
+bottom: .word 0
 d011:   .byte $10,$11,$12,$13,$14,$15,$16,$17
 d018:   .byte $14, $f4
 
 screen_lo: .byte <SCREEN2,<SCREEN
 screen_hi: .byte >SCREEN2,>SCREEN
 screen_number: .byte 0
-bottom_render: .byte 0
+bottom_render: .word 0
+current_render: .word 0
 frame: .byte 0
 *=$02 "Zeropage" virtual
 .zp {
     screen_ptr: .word 0
     tile_to_render: .word 0
+    row_in_tile: .byte 0
 }
