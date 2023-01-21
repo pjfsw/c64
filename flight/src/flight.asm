@@ -3,7 +3,8 @@
     .const ROWS_TO_RENDER_PER_FRAME=4
     .const FRAMES_TO_RENDER_TILES=6
     .const BORDER_COLOR = 0
-    .const DEBUG_COLOR = 6
+    .const DEBUG_COLOR1 = 11
+    .const DEBUG_COLOR2 = 12
 
 BasicUpstart2(program_start)
     *=$080e
@@ -13,26 +14,34 @@ program_start:
     sei
     ldx #<irq
     ldy #>irq
-    lda #$fa
+    lda #$ec
     jsr lib_setup_irq
     cli
     jmp *
 
-irq:
-    sta 1 + !save_a+
-    stx 1 + !save_x+
-    sty 1 + !save_y+
+irq: {
+    sta save_a
+    stx save_x
+    sty save_y
 
-    //lda frame
-    //clc
-    //adc #1
-    //sta frame
-    //and #15
-    //bne !irq_end+
-
-    lda #DEBUG_COLOR
+    lda #DEBUG_COLOR1
+    sta $d020
+    jsr update_hud
+    lda #DEBUG_COLOR2
+    sta $d020
+    jsr update_screen
+    lda #BORDER_COLOR
     sta $d020
 
+    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
+    sta $d019
+
+    lda save_a:#0
+    ldy save_y:#0
+    ldx save_x:#0
+    rti
+
+update_screen:
     ldx scroll
     inx
     stx scroll
@@ -53,40 +62,16 @@ irq:
 
     adc #FRAMES_TO_RENDER_TILES*ROWS_TO_RENDER_PER_FRAME
     sta bottom_render
-    jmp !irq_end+
+    rts
 
 !:
     cpx #FRAMES_TO_RENDER_TILES+1
     bcs !+
     jsr draw_tiles
 !:
+    rts
 
-!irq_end:
-    lda #BORDER_COLOR
-    sta $d020
-
-    set_next_irq()
-
-    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
-    sta $d019
-
-!save_a:
-    lda #0
-!save_y:
-    ldy #0
-!save_x:
-    ldx #0
-
-    rti
-
-irq_hud:
-    sta 1 + !save_a+
-    stx 1 + !save_x+
-    sty 1 + !save_y+
-
-    lda #DEBUG_COLOR
-    sta $d020
-
+update_hud:
     lda #hud_sprite/64
 hud_sprite_ptr_sta:
     .for (var i = 0; i < 7; i++) {
@@ -110,20 +95,7 @@ hud_sprite_ptr_sta:
     lda #0
     sta $d01b // sprite priority
 
-    set_next_irq()
-
-    lda #BORDER_COLOR
-    sta $d020
-    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
-    sta $d019
-
-!save_a:
-    lda #0
-!save_y:
-    ldy #0
-!save_x:
-    ldx #0
-    rti
+    rts
 
 flip_screen:
     lda screen_number
@@ -176,6 +148,7 @@ draw_tiles:
     cpx bottom_render
     bne !-
     rts
+}
 
 setup_screen:
     ldx scroll
@@ -187,28 +160,12 @@ setup_screen:
     adc #FRAMES_TO_RENDER_TILES*ROWS_TO_RENDER_PER_FRAME
     sta bottom_render
 
-    jsr flip_screen
+    jsr irq.flip_screen
     .for (var i = 0; i < FRAMES_TO_RENDER_TILES; i++) {
-        jsr draw_tiles
+        jsr irq.draw_tiles
     }
 
     rts
-
-.macro set_next_irq() {
-    ldx next_irq
-    lda irq_lo,x
-    sta $fffe
-    lda irq_hi,x
-    sta $ffff
-    lda irq_at,x
-    sta $d012
-    inx
-    cpx #irq_lo_end-irq_lo
-    bne !+
-    ldx #0
-!:
-    stx next_irq
-}
 
 #import "../../lib/src/irq.asm"
 
@@ -221,16 +178,10 @@ hud_sprite:
 tilemap: .fill 256,i/16
 world:  .fill 256,i
 
-
 scroll: .byte 7
 bottom: .byte 0
 d011:   .byte $10,$11,$12,$13,$14,$15,$16,$17
 d018:   .byte $14, $f4
-next_irq: .byte 0
-irq_lo: .byte  <irq_hud, <irq
-irq_lo_end:
-irq_hi: .byte  >irq_hud, >irq
-irq_at: .byte $ea, $f0
 
 screen_lo: .byte <SCREEN2,<SCREEN
 screen_hi: .byte >SCREEN2,>SCREEN
