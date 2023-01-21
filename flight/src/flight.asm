@@ -1,7 +1,7 @@
     .const SCREEN=$0400
     .const SCREEN2=$3c00
-    .const ROWS_TO_RENDER_PER_FRAME=4
-    .const FRAMES_TO_RENDER_TILES=6
+    .const ROWS_TO_RENDER_PER_FRAME=3
+    .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
     .const DEBUG_COLOR1 = 11
     .const DEBUG_COLOR2 = 12
@@ -62,14 +62,9 @@ update_screen:
 
     adc #FRAMES_TO_RENDER_TILES*ROWS_TO_RENDER_PER_FRAME
     sta bottom_render
-    rts
 
 !:
-    cpx #FRAMES_TO_RENDER_TILES+1
-    bcs !+
-    jsr draw_tiles
-!:
-    rts
+    jmp draw_tiles
 
 update_hud:
     lda #hud_sprite/64
@@ -175,7 +170,7 @@ hud_sprite:
     .fill 63,255
 
 // LEVEL DATA
-tilemap: .fill 256,i/16
+//tilemap: .fill 256,i/16
 world:  .fill 256,i
 
 scroll: .byte 7
