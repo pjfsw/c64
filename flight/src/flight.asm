@@ -3,6 +3,7 @@
     .const SCREEN2=$8c00
     .const SCREEN2_D018=$34
 
+    .const PLAYER_BOTTOM_POS = 207
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
@@ -43,60 +44,93 @@ main:
     sec
     sbc last_frame
     sta frames
-
+    lda #DEBUG_COLOR1
+    sta $d020
     jsr move_player
     jsr update_shadow
+    lda #BORDER_COLOR
+    sta $d020
     jmp main
 
 update_shadow:
-    lda sprite_x
+    lda player_x
     clc
-    adc #4
+    adc player_h
     sta sprite_x+1
     rol
     and #1
     ora sprite_x_hi
     sta sprite_x_hi+1
+    lda #PLAYER_BOTTOM_POS
+    sta sprite_y+1
     rts
 
-.const speed = 2
-
+.const HSPEED = 2
+.const VSPEED = 1
 move_player:
     ldx joyleft
     beq !+
-    sub8(player_x, speed, player_x)
-    jmp bound_player_horizontally
+    sub8(player_x, HSPEED, player_x)
 !:
     ldx joyright
     beq !+
-    add8(player_x, speed, player_x)
-    jmp bound_player_horizontally
+    add8(player_x, HSPEED, player_x)
 !:
-    jmp bound_player_horizontally
+    ldx joyup
+    beq !+
+    sub8(player_h, VSPEED, player_h)
+!:
+    ldx joydown
+    beq !+
+    add8(player_h, VSPEED, player_h)
+!:
+
+    jmp bound_player
     rts
 
-.const LEFT_SPRITE_BOUND = 24
-.const RIGHT_SPRITE_BOUND = 320
+.const PLAYER_LEFT_BOUND = 24
+.const PLAYER_RIGHT_BOUND = 320
+.const PLAYER_TOP_BOUND = 16
+.const PLAYER_BOTTOM_BOUND = 2
 
-bound_player_horizontally:
-    cmp16(player_x, LEFT_SPRITE_BOUND)
+bound_player:
+    cmp16(player_x, PLAYER_LEFT_BOUND)
     bcs !+
-    lda #<LEFT_SPRITE_BOUND
+    lda #<PLAYER_LEFT_BOUND
     sta player_x
-    lda #>LEFT_SPRITE_BOUND
+    lda #>PLAYER_LEFT_BOUND
     sta player_x+1
 !:
-    cmp16(player_x, RIGHT_SPRITE_BOUND)
+    cmp16(player_x, PLAYER_RIGHT_BOUND)
     bcc !+
-    lda #<RIGHT_SPRITE_BOUND
+    lda #<PLAYER_RIGHT_BOUND
     sta player_x
-    lda #>RIGHT_SPRITE_BOUND
+    lda #>PLAYER_RIGHT_BOUND
     sta player_x+1
+!:
+    cmp16(player_h, PLAYER_BOTTOM_BOUND)
+    bcs !+
+    lda #<PLAYER_BOTTOM_BOUND
+    sta player_h
+    lda #>PLAYER_BOTTOM_BOUND
+    sta player_h+1
+!:
+    cmp16(player_h, PLAYER_TOP_BOUND)
+    bcc !+
+    lda #<PLAYER_TOP_BOUND
+    sta player_h
+    lda #>PLAYER_TOP_BOUND
+    sta player_h+1
 !:
     lda player_x
     sta sprite_x
     lda player_x+1
     sta sprite_x_hi
+
+    lda #PLAYER_BOTTOM_POS
+    sec
+    sbc player_h
+    sta sprite_y
     rts
 
 level_clear_irq: {
@@ -208,13 +242,10 @@ update_sprites:
     }
 
     lda #0
-    ora sprite_x_hi+1
-    asl
-    ora sprite_x_hi
-    //.for (var i = 0; i < 8; i++) {
-    //    asl
-//        ora sprite_x_hi + (7-i)
-    //}
+    .for (var i = 0; i < 8; i++) {
+        asl
+        ora sprite_x_hi + (7-i)
+    }
     sta $d010
 
     rts
@@ -227,6 +258,8 @@ update_anim:
     clc
     adc #player_sprite/64
     sta sprite_ptr
+    adc #2
+    sta sprite_ptr+1
     rts
 
 update_hud:
@@ -359,9 +392,9 @@ setup_screen:
     lda #0
     sta $d01b // sprite priority
 
-    .for (var i = 0; i < 63; i++) {
+    .for (var i = 0; i < 127; i++) {
         lda player_sprite + i
-        .if (mod(i,6) >= 3) {
+        .if (mod((i&63),6) >= 3) {
             and #%10101010
         } else {
             and #%01010101
@@ -373,10 +406,14 @@ setup_screen:
     sta player_x
     lda #0
     sta player_x+1
+    lda #<PLAYER_BOTTOM_BOUND
+    sta player_h
+    lda #>PLAYER_BOTTOM_BOUND
+    sta player_h+1
 
-    lda #208
+    lda #PLAYER_BOTTOM_POS
     sta sprite_y
-    lda #212
+    lda #PLAYER_BOTTOM_POS
     sta sprite_y+1
 
     lda #FG_COLOR
@@ -548,6 +585,8 @@ joyright:
 joyfire:
     .byte 0
 player_x:
+    .word 0
+player_h:
     .word 0
 *=$8800 "Screen1" virtual
     .fill $400,0
