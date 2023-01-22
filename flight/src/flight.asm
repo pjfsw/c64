@@ -5,6 +5,10 @@
     .const SCREEN2_D018=$34
     .const SCREEN2_SPRITES=SCREEN2+$3f8
 
+    .const PLAYER_LEFT_BOUND = 24
+    .const PLAYER_RIGHT_BOUND = 320
+    .const PLAYER_TOP_BOUND = 16
+    .const PLAYER_BOTTOM_BOUND = 2
     .const PLAYER_BOTTOM_POS = 207
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
@@ -21,6 +25,11 @@
     .const CHAR_SUBPIXEL_SIZE = FIXED_POINT * CHAR_HEIGHT
     .const MAP_LENGTH = 200
     .const BOTTOM_TILE_AT_END = MAP_LENGTH - 24/TILE_HEIGHT
+    .const SPRITE_MEM = $a000
+    .const PLAYER_SPRITE_NO = 0
+    .const SHADOW_SPRITE_NO = 1
+    .const FIRE_SPRITE_NO = 2
+    .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
 
 BasicUpstart2(program_start)
     *=$080e
@@ -50,26 +59,78 @@ main:
     sta $d020
     jsr move_player
     jsr update_shadow
+    jsr update_fire
     lda #BORDER_COLOR
     sta $d020
     jmp main
 
+update_fire:
+{
+    lda #0
+    sta player_fire_x
+    sta player_fire_x+1
+    lda sprite_y
+    sbc #5
+    sta player_fire_y
+
+    lda joyfire
+    beq !+
+
+    lda player_x
+    sta player_fire_x
+    lda player_x + 1
+    sta player_fire_x + 1
+
+!:
+    // TODO multiplex fire sprite between player and enemy fire
+    lda frame
+    and #3
+    bne !odd_frame+
+
+    lda player_fire_x
+    sta sprite_x + FIRE_SPRITE_NO
+    lda player_fire_x + 1
+    sta sprite_x_hi + FIRE_SPRITE_NO
+    lda player_fire_y
+    sta sprite_y + FIRE_SPRITE_NO
+
+    ldx gun_anim
+    lda gun_anim_color,x
+    sta sprite_color + FIRE_SPRITE_NO
+    inx
+    cpx #gun_anim_color_end-gun_anim_color
+    bne !+
+    ldx #0
+!:
+    stx gun_anim
+    rts
+
+!odd_frame:
+    lda #0
+    sta sprite_x + FIRE_SPRITE_NO
+    sta sprite_x_hi + FIRE_SPRITE_NO
+    rts
+
+}
+
 update_shadow:
+{
     lda player_x
     clc
     adc player_h
-    sta sprite_x+1
+    sta sprite_x + SHADOW_SPRITE_NO
     rol
     and #1
-    ora sprite_x_hi
-    sta sprite_x_hi+1
+    ora sprite_x_hi + PLAYER_SPRITE_NO
+    sta sprite_x_hi + SHADOW_SPRITE_NO
     lda #PLAYER_BOTTOM_POS
-    sta sprite_y+1
+    sta sprite_y + SHADOW_SPRITE_NO
     rts
-
+}
 .const HSPEED = 2
 .const VSPEED = 1
 move_player:
+{
     ldx joyleft
     beq !+
     sub8(player_x, HSPEED, player_x)
@@ -86,14 +147,9 @@ move_player:
     beq !+
     add8(player_h, VSPEED, player_h)
 !:
-
     jmp bound_player
     rts
-
-.const PLAYER_LEFT_BOUND = 24
-.const PLAYER_RIGHT_BOUND = 320
-.const PLAYER_TOP_BOUND = 16
-.const PLAYER_BOTTOM_BOUND = 2
+}
 
 bound_player:
     cmp16(player_x, PLAYER_LEFT_BOUND)
@@ -254,14 +310,17 @@ update_sprites:
 }
 
 update_anim:
+    inc player_anim
     lda player_anim
-    eor #1
-    sta player_anim
+    lsr
+    and #1
     clc
     adc #player_sprite/64
-    sta sprite_ptr
-    adc #2
-    sta sprite_ptr+1
+    sta sprite_ptr + PLAYER_SPRITE_NO
+    adc #SHADOW_SPRITE_OFFSET
+    sta sprite_ptr + SHADOW_SPRITE_NO
+    lda #gun_sprite/64
+    sta sprite_ptr + FIRE_SPRITE_NO
     rts
 
 update_hud:
@@ -416,7 +475,7 @@ setup_screen:
         } else {
             and #%01010101
         }
-        sta shadow_sprite + i
+        sta player_sprite + SHADOW_SPRITE_OFFSET * 64 + i
     }
 
     lda #172
@@ -491,12 +550,16 @@ copy_sprites:
 #import "../../lib/src/irq.asm"
 #import "arithmetic.asm"
 
+gun_anim:
+    .byte 0
+gun_anim_color:
+    .byte 8,7,2,1
+gun_anim_color_end:
+
 player_anim:
     .byte 0
 sprite_ptr:
-    .byte player_sprite/64
-    .byte shadow_sprite/64
-    .fill 6,0
+    .fill 8,0
 sprite_x:
     .fill 8,0
 sprite_y:
@@ -504,7 +567,7 @@ sprite_y:
 sprite_x_hi:
     .fill 8,0
 sprite_color:
-    .byte 1,0,0,0,0,0,0,0
+    .byte 1,0,7,0,0,0,0,0
 
 .align $100
 sprite_data:
@@ -512,54 +575,7 @@ sprite_data:
 sprite_data_end:
 
 .align $100
-// LEVEL DATA. 4x4 tiles = 10 tiles per row
-tiledata:
-  .fill 16,$20
-
-  .byte $20,$66,$66,$20
-  .byte $66,$dc,$a0,$5c
-  .byte $66,$a0,$a0,$5c
-  .byte $20,$68,$68,$20
-
-  .fill 16,$20
-  .fill 16,$20
-
-  .fill 4,[$a0,$5c,$20,$20]
-  .fill 4,[$a0,$66,$20,$20]
-  .fill 4,[$20,$20,$66,$a0]
-  .fill 4,[$20,$66,$a0,$a0]
-
-  .byte $4a,$40,$40,$4b
-  .byte $42,$20,$20,$42
-  .byte $42,$20,$20,$42
-  .byte $55,$40,$40,$49
-
-  .byte $6d,$40,$40,$7d
-  .byte $42,$20,$20,$42
-  .byte $42,$20,$20,$42
-  .byte $70,$40,$40,$6e
-
-  .byte $20,$20,$20,$5f
-  .byte $20,$20,$5f,$a0
-  .byte $20,$5f,$a0,$a0
-  .byte $5f,$a0,$a0,$a0
-tiledata_manual_end:
- .fill 256-(tiledata_manual_end-tiledata),i/16
-tile_no_to_tile_offset: .fill 16,i*16
-
-levelmap:
-    .for (var n = 0; n < MAP_LENGTH; n++) {
-        .byte 4+(n&1) // left Shore
-        .for (var n = 1; n < 9; n++) {
-            .var r = floor(8 * random())
-            .if (r == 0) {
-                .byte $1
-            } else {
-                .byte $0
-            }
-        }
-        .byte 6+(n&1)
-    }
+#import "level.asm"
 
 y_to_levelmap_lo: .fill MAP_LENGTH,<(levelmap + i * TILES_PER_ROW)
 .byte 255
@@ -608,16 +624,22 @@ player_x:
     .word 0
 player_h:
     .word 0
+player_fire_x:
+    .word 0
+player_fire_y:
+    .word 0
 *=$8800 "Screen1" virtual
     .fill $400,0
 *=$8c00 "Screen2" virtual
     .fill $400,0
-*=$a000 "Sprites" virtual
+*=SPRITE_MEM "Sprites" virtual
 sprite_location:
 hud_sprite:
     .fill 64,0
 player_sprite:
     .fill 128,0
+gun_sprite:
+    .fill 64,0
 shadow_sprite:
     .fill 64,0
 
