@@ -84,7 +84,7 @@ update_fire:
 !:
     // TODO multiplex fire sprite between player and enemy fire
     lda frame
-    and #3
+    and #1
     bne !odd_frame+
 
     lda player_fire_x
@@ -279,6 +279,7 @@ read_input:
 update_sprites:
 {
     ldy #0
+    sty $d01c
     .for (var i = 0; i < 8; i++) {
         lda sprite_ptr + i
         sta (screen_sprite_ptr),y
@@ -336,6 +337,7 @@ store_sprite_ptrs:
     .for (var i = 0; i < 7; i++) {
         sta $d001 + i * 2
         stx $d027 + i // color
+
     }
     .for (var i = 0; i < 7; i++) {
         lda #i*48+24
@@ -346,6 +348,12 @@ store_sprite_ptrs:
     lda #$7f
     sta $d015 // sprite enable
     sta $d01d // double width
+    lda #$7f
+    sta $d01c // multicolor
+    lda #11
+    sta $d026
+    lda #12
+    sta $d025
 
     rts
 }
