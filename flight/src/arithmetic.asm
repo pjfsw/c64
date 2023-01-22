@@ -39,3 +39,16 @@
     sbc #>immediate
     sta dest+1
 }
+
+// C=0,Z=0: value < immediate, C=1,Z=1: value = immediate, C=1,Z=0, value > immediate
+.macro cmp16(low_byte,high_byte,immediate) {
+//16-bit number comparison...
+    lda high_byte     // MSB of 1st number
+    cmp #>immediate   // MSB of 2nd number
+    bcc !+            // value < immediate
+    bne !+            // value > immediate
+
+    lda low_byte      // LSB of 1st number
+    cmp #<immediate   // LSB of 2nd number
+!:
+}

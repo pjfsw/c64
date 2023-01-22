@@ -59,57 +59,57 @@ update_shadow:
     sta sprite_x_hi+1
     rts
 
+.const speed = 2
+
 move_player:
     ldx joyleft
     beq !+
-    {
-        lda sprite_x_hi
-        beq !+
-        {
-            // Handle left movement on 256-320
-            dec sprite_x
-            bmi !+
-            rts
-        !:
-            lda #0
-            sta sprite_x_hi
-            rts
-        }
-    !:
-        lda sprite_x
-        cmp #24
-        bne !+
-        rts
-    !:
-        dec sprite_x
-        rts
-    }
+    sec
+    lda sprite_x
+    sbc #speed
+    sta sprite_x_tmp
+    lda sprite_x_hi
+    sbc #0
+    sta sprite_x_hi_tmp
+
+    jmp bound_player_horizontally
 !:
     ldx joyright
     beq !+
-    {
-        lda sprite_x_hi
-        beq !+
-        {
-            // Handle right movement on 256-320
-            lda sprite_x
-            cmp #64
-            bcc !+
-            rts
-        !:
-            inc sprite_x
-            rts
-        }
-    !:
-        inc sprite_x
-        beq !+
-        rts
-    !:
-        lda #1
-        sta sprite_x_hi
-        rts
-    }
+    clc
+    lda sprite_x
+    adc #speed
+    sta sprite_x_tmp
+    lda sprite_x_hi
+    adc #0
+    sta sprite_x_hi_tmp
+
+    jmp bound_player_horizontally
 !:
+    rts
+
+.const LEFT_SPRITE_BOUND = 24
+.const RIGHT_SPRITE_BOUND = 320
+
+bound_player_horizontally:
+    cmp16(sprite_x_tmp, sprite_x_hi_tmp, LEFT_SPRITE_BOUND)
+    bcs !+
+    lda #<LEFT_SPRITE_BOUND
+    sta sprite_x_tmp
+    lda #>LEFT_SPRITE_BOUND
+    sta sprite_x_hi_tmp
+!:
+    cmp16(sprite_x_tmp, sprite_x_hi_tmp, RIGHT_SPRITE_BOUND)
+    bcc !+
+    lda #<RIGHT_SPRITE_BOUND
+    sta sprite_x_tmp
+    lda #>RIGHT_SPRITE_BOUND
+    sta sprite_x_hi_tmp
+!:
+    lda sprite_x_tmp
+    sta sprite_x
+    lda sprite_x_hi_tmp
+    sta sprite_x_hi
     rts
 
 level_clear_irq: {
@@ -560,7 +560,10 @@ joyright:
     .byte 0
 joyfire:
     .byte 0
-
+sprite_x_tmp:
+    .byte 0
+sprite_x_hi_tmp:
+    .byte 0
 *=$8800 "Screen1" virtual
     .fill $400,0
 *=$8c00 "Screen2" virtual
