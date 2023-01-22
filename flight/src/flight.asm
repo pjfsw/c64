@@ -64,51 +64,38 @@ update_shadow:
 move_player:
     ldx joyleft
     beq !+
-    sec
-    lda sprite_x
-    sbc #speed
-    sta sprite_x_tmp
-    lda sprite_x_hi
-    sbc #0
-    sta sprite_x_hi_tmp
-
+    sub8(player_x, speed, player_x)
     jmp bound_player_horizontally
 !:
     ldx joyright
     beq !+
-    clc
-    lda sprite_x
-    adc #speed
-    sta sprite_x_tmp
-    lda sprite_x_hi
-    adc #0
-    sta sprite_x_hi_tmp
-
+    add8(player_x, speed, player_x)
     jmp bound_player_horizontally
 !:
+    jmp bound_player_horizontally
     rts
 
 .const LEFT_SPRITE_BOUND = 24
 .const RIGHT_SPRITE_BOUND = 320
 
 bound_player_horizontally:
-    cmp16(sprite_x_tmp, sprite_x_hi_tmp, LEFT_SPRITE_BOUND)
+    cmp16(player_x, LEFT_SPRITE_BOUND)
     bcs !+
     lda #<LEFT_SPRITE_BOUND
-    sta sprite_x_tmp
+    sta player_x
     lda #>LEFT_SPRITE_BOUND
-    sta sprite_x_hi_tmp
+    sta player_x+1
 !:
-    cmp16(sprite_x_tmp, sprite_x_hi_tmp, RIGHT_SPRITE_BOUND)
+    cmp16(player_x, RIGHT_SPRITE_BOUND)
     bcc !+
     lda #<RIGHT_SPRITE_BOUND
-    sta sprite_x_tmp
+    sta player_x
     lda #>RIGHT_SPRITE_BOUND
-    sta sprite_x_hi_tmp
+    sta player_x+1
 !:
-    lda sprite_x_tmp
+    lda player_x
     sta sprite_x
-    lda sprite_x_hi_tmp
+    lda player_x+1
     sta sprite_x_hi
     rts
 
@@ -383,12 +370,12 @@ setup_screen:
     }
 
     lda #172
-    sta sprite_x
+    sta player_x
+    lda #0
+    sta player_x+1
+
     lda #208
     sta sprite_y
-
-    lda #176
-    sta sprite_x+1
     lda #212
     sta sprite_y+1
 
@@ -560,10 +547,8 @@ joyright:
     .byte 0
 joyfire:
     .byte 0
-sprite_x_tmp:
-    .byte 0
-sprite_x_hi_tmp:
-    .byte 0
+player_x:
+    .word 0
 *=$8800 "Screen1" virtual
     .fill $400,0
 *=$8c00 "Screen2" virtual
