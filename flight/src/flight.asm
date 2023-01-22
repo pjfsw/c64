@@ -1,19 +1,24 @@
     .const SCREEN=$8800
     .const SCREEN_D018=$24
     .const SCREEN_SPRITES=SCREEN+$3f8
+
     .const SCREEN2=$8c00
     .const SCREEN2_D018=$34
     .const SCREEN2_SPRITES=SCREEN2+$3f8
+
+    .const SCREEN3=$8400
+    .const SCREEN3_D018=$14
 
     .const PLAYER_LEFT_BOUND = 24
     .const PLAYER_RIGHT_BOUND = 320
     .const PLAYER_TOP_BOUND = 16
     .const PLAYER_BOTTOM_BOUND = 2
-    .const PLAYER_BOTTOM_POS = 207
+    .const PLAYER_BOTTOM_POS = 200
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
     .const FG_COLOR = 6
+    .const HUD_FG_COLOR = 11
     .const CHAR_COLOR = 5
     .const DEBUG_COLOR1 = 11
     .const DEBUG_COLOR2 = 12
@@ -30,6 +35,11 @@
     .const SHADOW_SPRITE_NO = 1
     .const FIRE_SPRITE_NO = 2
     .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
+
+    .const HUD_POS = $e5
+    .const HUD_IRQ_ROW = HUD_POS - 4 //$ea
+    .const IRQ_ROW = $f6
+
 
 BasicUpstart2(program_start)
     *=$080e
@@ -204,8 +214,7 @@ level_clear_irq: {
     rti
 }
 
-
-irq: {
+hud_irq: {
     sta save_a
     stx save_x
     sty save_y
@@ -213,6 +222,81 @@ irq: {
     lda #DEBUG_COLOR1
     sta $d020
     jsr update_hud
+    lda #0
+    sta $d020
+
+    lda #<irq
+    sta $fffe
+    lda #>irq
+    sta $ffff
+    lda #IRQ_ROW
+    sta $d012
+
+    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
+    sta $d019
+
+    lda save_a:#0
+    ldy save_y:#0
+    ldx save_x:#0
+    rti
+
+update_hud:
+{
+    lda #hud_sprite/64
+//store_sprite_ptrs:
+    .for (var i = 0; i < 7; i++) {
+        sta SCREEN3+$3f8 + i
+    }
+
+    lda #HUD_POS
+    ldx #BORDER_COLOR
+    .for (var i = 0; i < 7; i++) {
+        sta $d001 + i * 2
+        stx $d027 + i // color
+
+    }
+    .for (var i = 0; i < 7; i++) {
+        lda #i*48+24
+        sta $d000 + i * 2
+    }
+    lda #$60
+    sta $d010
+    lda #$7f
+    sta $d015 // sprite enable
+    sta $d01d // double width
+    lda #$7f
+    sta $d01c // multicolor
+    lda #11
+    sta $d026
+    lda #12
+    sta $d025
+
+    lda #$10
+    sta $d011
+
+    lda #SCREEN3_D018
+    sta $d018
+
+    ldx #20
+!:
+    nop
+    dex
+    bne !-
+
+    lda #HUD_FG_COLOR
+    sta $d021
+
+    rts
+}
+
+}
+
+
+irq: {
+    sta save_a
+    stx save_x
+    sty save_y
+
     lda #DEBUG_COLOR2
     sta $d020
     jsr update_screen
@@ -221,6 +305,9 @@ irq: {
     jsr update_sprites
     jsr update_anim
     jsr read_input
+
+    lda #FG_COLOR
+    sta $d021
 
     lda bottom+1
     cmp #BOTTOM_TILE_AT_END
@@ -234,6 +321,13 @@ irq: {
 
     lda #BORDER_COLOR
     sta $d020
+
+    lda #<hud_irq
+    sta $fffe
+    lda #>hud_irq
+    sta $ffff
+    lda #HUD_IRQ_ROW
+    sta $d012
 
     lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
     sta $d019
@@ -324,39 +418,6 @@ update_anim:
     sta sprite_ptr + FIRE_SPRITE_NO
     rts
 
-update_hud:
-{
-    lda #hud_sprite/64
-store_sprite_ptrs:
-    .for (var i = 0; i < 7; i++) {
-        sta SCREEN2+$3f8 + i
-    }
-
-    lda #238
-    ldx #BORDER_COLOR
-    .for (var i = 0; i < 7; i++) {
-        sta $d001 + i * 2
-        stx $d027 + i // color
-
-    }
-    .for (var i = 0; i < 7; i++) {
-        lda #i*48+24
-        sta $d000 + i * 2
-    }
-    lda #$60
-    sta $d010
-    lda #$7f
-    sta $d015 // sprite enable
-    sta $d01d // double width
-    lda #$7f
-    sta $d01c // multicolor
-    lda #11
-    sta $d026
-    lda #12
-    sta $d025
-
-    rts
-}
 
 update_screen:
     ldx scroll
@@ -375,6 +436,10 @@ update_screen:
     add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 !:
+    ldx screen_number
+    lda d018,x
+    sta $d018
+
     jmp draw_tiles
 
 .const SPRITE_OFFSET = $3f8
@@ -383,9 +448,6 @@ flip_screen:
     eor #1
     sta screen_number
     tax
-
-    lda d018,x
-    sta $d018
 
     lda screen_lo,x
     sta screen_ptr
@@ -397,11 +459,6 @@ flip_screen:
 
     lda sprite_data_hi,x
     sta screen_sprite_ptr+1
-
-    // Update HUD sprite pointers
-    .for (var i = 0; i < 7; i++) {
-        sta 2 + update_hud.store_sprite_ptrs + i * 3
-    }
 
     rts
 
@@ -516,6 +573,30 @@ setup_screen:
     inx
     bne !-
 
+    lda #32
+!:
+    sta SCREEN3,x
+    sta SCREEN3+$100,x
+    sta SCREEN3+$200,x
+    sta SCREEN3+$300,x
+    inx
+    bne !-
+
+    ldx #0
+!:
+    lda hud_msg,x
+    beq !+
+    sta SCREEN3+40*23,x
+    inx
+    jmp !-
+
+    lda #15
+    ldx #80
+!:
+    sta $d800+(40*23),x
+    dex
+    bpl !-
+
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 
     jsr irq.flip_screen
@@ -525,6 +606,9 @@ setup_screen:
 
     rts
 
+hud_msg:
+    .text "ammo: 0000   fuel: 0000"
+    .byte 0
 
 copy_sprites:
 {
