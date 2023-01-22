@@ -23,6 +23,9 @@ BasicUpstart2(program_start)
     *=$080e
 
 program_start:
+    lda #0
+    sta frame
+    sta last_frame
     jsr copy_sprites
     sei
     ldx #<irq
@@ -31,7 +34,83 @@ program_start:
     jsr lib_setup_irq
     jsr setup_screen
     cli
-    jmp *
+
+main:
+    lda frame
+    cmp last_frame
+    beq main
+    sta last_frame
+    sec
+    sbc last_frame
+    sta frames
+
+    jsr move_player
+    jsr update_shadow
+    jmp main
+
+update_shadow:
+    lda sprite_x
+    clc
+    adc #4
+    sta sprite_x+1
+    rol
+    and #1
+    ora sprite_x_hi
+    sta sprite_x_hi+1
+    rts
+
+move_player:
+    ldx joyleft
+    beq !+
+    {
+        lda sprite_x_hi
+        beq !+
+        {
+            // Handle left movement on 256-320
+            dec sprite_x
+            bmi !+
+            rts
+        !:
+            lda #0
+            sta sprite_x_hi
+            rts
+        }
+    !:
+        lda sprite_x
+        cmp #24
+        bne !+
+        rts
+    !:
+        dec sprite_x
+        rts
+    }
+!:
+    ldx joyright
+    beq !+
+    {
+        lda sprite_x_hi
+        beq !+
+        {
+            // Handle right movement on 256-320
+            lda sprite_x
+            cmp #64
+            bcc !+
+            rts
+        !:
+            inc sprite_x
+            rts
+        }
+    !:
+        inc sprite_x
+        beq !+
+        rts
+    !:
+        lda #1
+        sta sprite_x_hi
+        rts
+    }
+!:
+    rts
 
 level_clear_irq: {
     sta save_a
@@ -72,6 +151,7 @@ irq: {
     lda #>level_clear_irq
     sta $ffff
 !:
+    inc frame
 
     lda #BORDER_COLOR
     sta $d020
@@ -141,6 +221,13 @@ update_sprites:
     }
 
     lda #0
+    ora sprite_x_hi+1
+    asl
+    ora sprite_x_hi
+    //.for (var i = 0; i < 8; i++) {
+    //    asl
+//        ora sprite_x_hi + (7-i)
+    //}
     sta $d010
 
     rts
@@ -456,9 +543,12 @@ screen_number: .byte 0
 bottom_render: .word 0
 current_render: .word 0
 
-
 *=* "Volatile data" virtual
 frame:
+    .byte 0
+last_frame:
+    .byte 0
+frames:
     .byte 0
 joyup:
     .byte 0
