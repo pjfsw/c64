@@ -1,7 +1,9 @@
     .const SCREEN=$8800
     .const SCREEN_D018=$24
+    .const SCREEN_SPRITES=SCREEN+$3f8
     .const SCREEN2=$8c00
     .const SCREEN2_D018=$34
+    .const SCREEN2_SPRITES=SCREEN2+$3f8
 
     .const PLAYER_BOTTOM_POS = 207
     .const ROWS_TO_RENDER_PER_FRAME=3
@@ -31,7 +33,7 @@ program_start:
     sei
     ldx #<irq
     ldy #>irq
-    lda #$ea
+    lda #$eb
     jsr lib_setup_irq
     jsr setup_screen
     cli
@@ -220,11 +222,11 @@ read_input:
 
 update_sprites:
 {
+    ldy #0
     .for (var i = 0; i < 8; i++) {
-        // TODO FIX THIS
         lda sprite_ptr + i
-        sta SCREEN + $3f8 + i
-        sta SCREEN2 + $3f8 + i
+        sta (screen_sprite_ptr),y
+        iny
     }
 
     lda #$7f
@@ -263,10 +265,10 @@ update_anim:
     rts
 
 update_hud:
+{
     lda #hud_sprite/64
+store_sprite_ptrs:
     .for (var i = 0; i < 7; i++) {
-        // TODO FIX THIS
-        sta SCREEN+$3f8 + i
         sta SCREEN2+$3f8 + i
     }
 
@@ -287,6 +289,7 @@ update_hud:
     sta $d01d // double width
 
     rts
+}
 
 update_screen:
     ldx scroll
@@ -307,17 +310,31 @@ update_screen:
 !:
     jmp draw_tiles
 
+.const SPRITE_OFFSET = $3f8
 flip_screen:
     lda screen_number
     eor #1
     sta screen_number
     tax
+
     lda d018,x
     sta $d018
+
     lda screen_lo,x
     sta screen_ptr
     lda screen_hi,x
     sta screen_ptr+1
+
+    lda sprite_data_lo,x
+    sta screen_sprite_ptr
+
+    lda sprite_data_hi,x
+    sta screen_sprite_ptr+1
+
+    // Update HUD sprite pointers
+    .for (var i = 0; i < 7; i++) {
+        sta 2 + update_hud.store_sprite_ptrs + i * 3
+    }
 
     rts
 
@@ -559,10 +576,13 @@ y_to_levelmap_hi: .fill MAP_LENGTH,>(levelmap + i * TILES_PER_ROW)
 scroll: .byte 7
 bottom: .word 0
 d011:   .byte $10,$11,$12,$13,$14,$15,$16,$17
-d018:   .byte SCREEN_D018, SCREEN2_D018
 
+d018:   .byte SCREEN_D018, SCREEN2_D018
 screen_lo: .byte <SCREEN2,<SCREEN
 screen_hi: .byte >SCREEN2,>SCREEN
+sprite_data_lo: .byte <SCREEN_SPRITES, <SCREEN2_SPRITES
+sprite_data_hi: .byte >SCREEN_SPRITES, >SCREEN2_SPRITES
+
 screen_number: .byte 0
 bottom_render: .word 0
 current_render: .word 0
