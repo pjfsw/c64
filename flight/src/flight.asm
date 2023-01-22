@@ -20,6 +20,7 @@ BasicUpstart2(program_start)
     *=$080e
 
 program_start:
+    jsr copy_sprites
     jsr setup_screen
     sei
     ldx #<irq
@@ -58,6 +59,7 @@ irq: {
     sta $d020
     jsr update_sprites
     jsr update_anim
+    jsr read_input
 
     lda bottom+1
     cmp #BOTTOM_TILE_AT_END
@@ -78,6 +80,39 @@ irq: {
     ldy save_y:#0
     ldx save_x:#0
     rti
+
+read_input:
+{
+    ldx #0
+    ldy #1
+    lda $dc00
+    stx joyup
+    lsr
+    bcs !+
+    sty joyup
+!:
+    stx joydown
+    lsr
+    bcs !+
+    sty joydown
+!:
+    stx joyleft
+    lsr
+    bcs !+
+    sty joyleft
+!:
+    stx joyright
+    lsr
+    bcs !+
+    sty joyright
+!:
+    stx joyfire
+    lsr
+    bcs !+
+    sty joyfire
+!:
+    rts
+}
 
 update_sprites:
 {
@@ -287,50 +322,41 @@ setup_screen:
 
     rts
 
+
+copy_sprites:
+{
+    lda #0
+    sta copy_src_ptr    // Copy 256 bytes at a time
+    sta copy_dst_ptr
+    lda #>sprite_data
+    sta copy_src_ptr+1
+    lda #>sprite_location
+    sta copy_dst_ptr+1
+!:
+    {
+        ldy #0
+    !:
+        lda (copy_src_ptr),y
+        sta (copy_dst_ptr),y
+        iny
+        bne !-
+    }
+
+    inc copy_dst_ptr+1
+    lda copy_src_ptr+1
+    clc
+    adc #1
+    sta copy_src_ptr+1
+    cmp #>sprite_data_end
+    bcc !-
+
+    rts
+}
 #import "../../lib/src/irq.asm"
 #import "arithmetic.asm"
 
-// SPRITE DATA
-    .align 64
-hud_sprite:
-    .fill 64,255
-player_sprite:
-    .for (var i = 0; i < 2; i++) {
-        .byte %00000000
-         .if (i == 0) {
-            .byte %11111000
-        } else {
-            .byte %00011111
-        }
-        .byte %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00111100, %00000000
-        .byte %01111111,%11111111, %11111110
-        .byte %11111111,%11111111, %11111111
-        .byte %01111111,%11111111, %11111110
-        .byte %00011111,%11111111, %11111000
-        .byte %00000000,%00111100, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00011000, %00000000
-        .byte %00000000,%00111100, %00000000
-        .byte %00000000,%11111111, %00000000
-        .byte 0
-    }
-
-shadow_sprite:
-    .fill 64,0
 player_anim:
     .byte 0
-
 sprite_ptr:
     .byte player_sprite/64
     .byte shadow_sprite/64
@@ -343,6 +369,11 @@ sprite_x_hi:
     .fill 8,0
 sprite_color:
     .byte 1,0,0,0,0,0,0,0
+
+.align $100
+sprite_data:
+#import "spritedata.asm"
+sprite_data_end:
 
 .align $100
 // LEVEL DATA. 4x4 tiles = 10 tiles per row
@@ -416,11 +447,37 @@ screen_hi: .byte >SCREEN2,>SCREEN
 screen_number: .byte 0
 bottom_render: .word 0
 current_render: .word 0
-frame: .byte 0
+
+
+*=* "Volatile data" virtual
+frame:
+    .byte 0
+joyup:
+    .byte 0
+joydown:
+    .byte 0
+joyleft:
+    .byte 0
+joyright:
+    .byte 0
+joyfire:
+    .byte 0
+
+*=$3000 "Sprites" virtual
+sprite_location:
+hud_sprite:
+    .fill 64,0
+player_sprite:
+    .fill 128,0
+shadow_sprite:
+    .fill 64,0
+
 *=$02 "Zeropage" virtual
 .zp {
     screen_ptr: .word 0
     screen_sprite_ptr: .word 0
+    copy_src_ptr: .word 0
+    copy_dst_ptr: .word 0
     tile_to_render: .word 0
     row_in_tile: .byte 0
 }
