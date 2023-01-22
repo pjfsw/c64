@@ -1,5 +1,8 @@
-    .const SCREEN=$0400
-    .const SCREEN2=$3c00
+    .const SCREEN=$8800
+    .const SCREEN_D018=$24
+    .const SCREEN2=$8c00
+    .const SCREEN2_D018=$34
+
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
@@ -21,12 +24,12 @@ BasicUpstart2(program_start)
 
 program_start:
     jsr copy_sprites
-    jsr setup_screen
     sei
     ldx #<irq
     ldy #>irq
     lda #$ea
     jsr lib_setup_irq
+    jsr setup_screen
     cli
     jmp *
 
@@ -274,6 +277,11 @@ draw_tiles:
 }
 
 setup_screen:
+    lda $dd00
+    and #%11111100
+    ora #%00000001 // // VIC bank in $8000-$bfff
+    sta $dd00
+
     lda #0
     sta $d01b // sprite priority
 
@@ -440,7 +448,7 @@ y_to_levelmap_hi: .fill MAP_LENGTH,>(levelmap + i * TILES_PER_ROW)
 scroll: .byte 7
 bottom: .word 0
 d011:   .byte $10,$11,$12,$13,$14,$15,$16,$17
-d018:   .byte $14, $f4
+d018:   .byte SCREEN_D018, SCREEN2_D018
 
 screen_lo: .byte <SCREEN2,<SCREEN
 screen_hi: .byte >SCREEN2,>SCREEN
@@ -463,7 +471,11 @@ joyright:
 joyfire:
     .byte 0
 
-*=$3000 "Sprites" virtual
+*=$8800 "Screen1" virtual
+    .fill $400,0
+*=$8c00 "Screen2" virtual
+    .fill $400,0
+*=$a000 "Sprites" virtual
 sprite_location:
 hud_sprite:
     .fill 64,0

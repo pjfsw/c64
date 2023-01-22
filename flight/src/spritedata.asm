@@ -33,6 +33,4 @@
         .byte %00000000,%01111110, %00000000
         .byte 0
     }
-    .align 64
 //shadow_sprite:
-    .fill 64,0
