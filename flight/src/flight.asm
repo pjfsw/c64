@@ -17,6 +17,7 @@
     .const FG_COLOR = 6
     .const HUD_FG_COLOR = 0
     .const CHAR_COLOR = 5
+    .const HUD_CHAR_COLOR = 15
     .const DEBUG_COLOR1 = 11
     .const DEBUG_COLOR2 = 12
     .const TILE_WIDTH = 4
@@ -32,10 +33,9 @@
     .const SHADOW_SPRITE_NO = 1
     .const FIRE_SPRITE_NO = 2
     .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
-
-    .const HUD_SPRITE_POS = 52
+    .const HUD_SPRITE_POS = 53
     .const HUD_IRQ_ROW = 67
-    .const SPRITE_IRQ_ROW = 74
+    .const SPRITE_IRQ_ROW = 76
     .const IRQ_ROW = $e0
 
 
@@ -217,12 +217,13 @@ hud_irq: {
     stx save_x
     sty save_y
 
-    lda #DEBUG_COLOR1
+    lda #DEBUG_COLOR2
     sta $d020
     ldx scroll
     lda d011,x
     sta $d011
 
+    set_top_row_colors(CHAR_COLOR)
     lda #FG_COLOR
     sta $d021
 
@@ -321,6 +322,7 @@ irq: {
     jsr update_hud
     jsr update_anim
     jsr read_input
+    set_top_row_colors(HUD_CHAR_COLOR)
 
     lda bottom+1
     cmp #BOTTOM_TILE_AT_END
@@ -363,11 +365,8 @@ update_hud:
     }
 
     lda #HUD_SPRITE_POS
-    ldx #BORDER_COLOR
     .for (var i = 0; i < 7; i++) {
         sta $d001 + i * 2
-        stx $d027 + i // color
-
     }
     .for (var i = 0; i < 7; i++) {
         lda #i*48+24
@@ -380,9 +379,9 @@ update_hud:
     sta $d01d // double width
     lda #$7f
     sta $d01c // multicolor
-    lda #11
+    lda #BORDER_COLOR
     sta $d026
-    lda #12
+    lda #HUD_CHAR_COLOR
     sta $d025
 
     lda #$10
@@ -537,6 +536,7 @@ draw_tiles:
         add8(screen_ptr, 40, screen_ptr)
         sub8(current_render, CHAR_SUBPIXEL_SIZE, current_render)
     }
+    lda screen_ptr
     lda current_render
     cmp bottom_render
     beq !+
@@ -620,13 +620,6 @@ setup_screen:
     jmp !-
 
 !:
-    lda #3
-    ldx #40
-!:
-    sta $d800+40,x
-    dex
-    bpl !-
-
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 
     jsr irq.flip_screen
@@ -669,6 +662,14 @@ copy_sprites:
 
     rts
 }
+
+.macro set_top_row_colors(color) {
+    lda #color
+    .for (var i = 0; i < 24; i++) {
+        sta $d800+40+i
+    }
+}
+
 #import "../../lib/src/irq.asm"
 #import "arithmetic.asm"
 
