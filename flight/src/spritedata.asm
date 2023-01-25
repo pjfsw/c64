@@ -1,8 +1,9 @@
 // SPRITE DATA
     .align 64
 //hud_sprite:
-    .fill 2*3,%10101010
-    .fill 19*3,0
+    .fill 3*3,%10101010
+    .fill 8*3,0
+    .fill 10*3,%10101010
     .byte 0
 //player_sprite:
     .for (var i = 0; i < 2; i++) {

@@ -6,19 +6,16 @@
     .const SCREEN2_D018=$34
     .const SCREEN2_SPRITES=SCREEN2+$3f8
 
-    .const SCREEN3=$8400
-    .const SCREEN3_D018=$14
-
     .const PLAYER_LEFT_BOUND = 24
     .const PLAYER_RIGHT_BOUND = 320
     .const PLAYER_TOP_BOUND = 16
     .const PLAYER_BOTTOM_BOUND = 2
-    .const PLAYER_BOTTOM_POS = 200
+    .const PLAYER_BOTTOM_POS = 220
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
     .const FG_COLOR = 6
-    .const HUD_FG_COLOR = 11
+    .const HUD_FG_COLOR = 0
     .const CHAR_COLOR = 5
     .const DEBUG_COLOR1 = 11
     .const DEBUG_COLOR2 = 12
@@ -28,7 +25,7 @@
     .const FIXED_POINT = 8
     .const CHAR_HEIGHT = 8 // Well this is never gonna change but might as well constant it for readability
     .const CHAR_SUBPIXEL_SIZE = FIXED_POINT * CHAR_HEIGHT
-    .const MAP_LENGTH = 12
+    .const MAP_LENGTH = 200
     .const BOTTOM_TILE_AT_END = MAP_LENGTH - 24/TILE_HEIGHT
     .const SPRITE_MEM = $a000
     .const PLAYER_SPRITE_NO = 0
@@ -36,9 +33,10 @@
     .const FIRE_SPRITE_NO = 2
     .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
 
-    .const HUD_POS = $e5
-    .const HUD_IRQ_ROW = HUD_POS - 4 //$ea
-    .const IRQ_ROW = $f6
+    .const HUD_SPRITE_POS = 52
+    .const HUD_IRQ_ROW = 67
+    .const SPRITE_IRQ_ROW = 74
+    .const IRQ_ROW = $e0
 
 
 BasicUpstart2(program_start)
@@ -52,7 +50,7 @@ program_start:
     sei
     ldx #<irq
     ldy #>irq
-    lda #$eb
+    lda #IRQ_ROW
     jsr lib_setup_irq
     jsr setup_screen
     cli
@@ -221,8 +219,42 @@ hud_irq: {
 
     lda #DEBUG_COLOR1
     sta $d020
-    jsr update_hud
-    lda #0
+    ldx scroll
+    lda d011,x
+    sta $d011
+
+    lda #FG_COLOR
+    sta $d021
+
+    lda #BORDER_COLOR
+    sta $d020
+
+    lda #<sprite_irq
+    sta $fffe
+    lda #>sprite_irq
+    sta $ffff
+    lda #SPRITE_IRQ_ROW
+    sta $d012
+
+    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
+    sta $d019
+
+    lda save_a:#0
+    ldy save_y:#0
+    ldx save_x:#0
+    rti
+
+}
+
+sprite_irq: {
+    sta save_a
+    stx save_x
+    sty save_y
+
+    lda #DEBUG_COLOR1
+    sta $d020
+    jsr update_sprites
+    lda #BORDER_COLOR
     sta $d020
 
     lda #<irq
@@ -239,138 +271,6 @@ hud_irq: {
     ldy save_y:#0
     ldx save_x:#0
     rti
-
-update_hud:
-{
-    lda #hud_sprite/64
-//store_sprite_ptrs:
-    .for (var i = 0; i < 7; i++) {
-        sta SCREEN3+$3f8 + i
-    }
-
-    lda #HUD_POS
-    ldx #BORDER_COLOR
-    .for (var i = 0; i < 7; i++) {
-        sta $d001 + i * 2
-        stx $d027 + i // color
-
-    }
-    .for (var i = 0; i < 7; i++) {
-        lda #i*48+24
-        sta $d000 + i * 2
-    }
-    lda #$60
-    sta $d010
-    lda #$7f
-    sta $d015 // sprite enable
-    sta $d01d // double width
-    lda #$7f
-    sta $d01c // multicolor
-    lda #11
-    sta $d026
-    lda #12
-    sta $d025
-
-    lda #$10
-    sta $d011
-
-    lda #SCREEN3_D018
-    sta $d018
-
-    ldx #20
-!:
-    nop
-    dex
-    bne !-
-
-    lda #HUD_FG_COLOR
-    sta $d021
-
-    rts
-}
-
-}
-
-
-irq: {
-    sta save_a
-    stx save_x
-    sty save_y
-
-    lda #DEBUG_COLOR2
-    sta $d020
-    jsr update_screen
-    lda #DEBUG_COLOR1
-    sta $d020
-    jsr update_sprites
-    jsr update_anim
-    jsr read_input
-
-    lda #FG_COLOR
-    sta $d021
-
-    lda bottom+1
-    cmp #BOTTOM_TILE_AT_END
-    bne !+
-    lda #<level_clear_irq
-    sta $fffe
-    lda #>level_clear_irq
-    sta $ffff
-    jmp !irq_done+
-!:
-    inc frame
-
-    lda #BORDER_COLOR
-    sta $d020
-
-    lda #<hud_irq
-    sta $fffe
-    lda #>hud_irq
-    sta $ffff
-    lda #HUD_IRQ_ROW
-    sta $d012
-
-!irq_done:
-    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
-    sta $d019
-
-    lda save_a:#0
-    ldy save_y:#0
-    ldx save_x:#0
-    rti
-
-read_input:
-{
-    ldx #0
-    ldy #1
-    lda $dc00
-    stx joyup
-    lsr
-    bcs !+
-    sty joyup
-!:
-    stx joydown
-    lsr
-    bcs !+
-    sty joydown
-!:
-    stx joyleft
-    lsr
-    bcs !+
-    sty joyleft
-!:
-    stx joyright
-    lsr
-    bcs !+
-    sty joyright
-!:
-    stx joyfire
-    lsr
-    bcs !+
-    sty joyfire
-!:
-    rts
-}
 
 update_sprites:
 {
@@ -405,6 +305,137 @@ update_sprites:
 
     rts
 }
+}
+
+
+irq: {
+    sta save_a
+    stx save_x
+    sty save_y
+
+    lda #DEBUG_COLOR2
+    sta $d020
+    jsr update_screen
+    lda #DEBUG_COLOR1
+    sta $d020
+    jsr update_hud
+    jsr update_anim
+    jsr read_input
+
+    lda bottom+1
+    cmp #BOTTOM_TILE_AT_END
+    bne !+
+    lda #<level_clear_irq
+    sta $fffe
+    lda #>level_clear_irq
+    sta $ffff
+    jmp !irq_done+
+!:
+    inc frame
+
+    lda #BORDER_COLOR
+    sta $d020
+
+    lda #<hud_irq
+    sta $fffe
+    lda #>hud_irq
+    sta $ffff
+    lda #HUD_IRQ_ROW
+    sta $d012
+
+!irq_done:
+    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
+    sta $d019
+
+    lda save_a:#0
+    ldy save_y:#0
+    ldx save_x:#0
+    rti
+
+update_hud:
+{
+    lda #hud_sprite/64
+    ldy #0
+//store_sprite_ptrs:
+    .for (var i = 0; i < 7; i++) {
+        sta (screen_sprite_ptr),y
+        iny
+    }
+
+    lda #HUD_SPRITE_POS
+    ldx #BORDER_COLOR
+    .for (var i = 0; i < 7; i++) {
+        sta $d001 + i * 2
+        stx $d027 + i // color
+
+    }
+    .for (var i = 0; i < 7; i++) {
+        lda #i*48+24
+        sta $d000 + i * 2
+    }
+    lda #$60
+    sta $d010
+    lda #$7f
+    sta $d015 // sprite enable
+    sta $d01d // double width
+    lda #$7f
+    sta $d01c // multicolor
+    lda #11
+    sta $d026
+    lda #12
+    sta $d025
+
+    lda #$10
+    sta $d011
+
+    ldx screen_number
+    lda d018,x
+    sta $d018
+
+    ldx #20
+!:
+    nop
+    dex
+    bne !-
+
+    lda #HUD_FG_COLOR
+    sta $d021
+
+    rts
+}
+
+read_input:
+{
+    ldx #0
+    ldy #1
+    lda $dc00
+    stx joyup
+    lsr
+    bcs !+
+    sty joyup
+!:
+    stx joydown
+    lsr
+    bcs !+
+    sty joydown
+!:
+    stx joyleft
+    lsr
+    bcs !+
+    sty joyleft
+!:
+    stx joyright
+    lsr
+    bcs !+
+    sty joyright
+!:
+    stx joyfire
+    lsr
+    bcs !+
+    sty joyfire
+!:
+    rts
+}
 
 update_anim:
     inc player_anim
@@ -424,12 +455,10 @@ update_anim:
 update_screen:
     ldx scroll
     inx
-    stx scroll
     txa
     and #7
     tax
-    lda d011,x
-    sta $d011
+    stx scroll
     cpx #0
     bne !+
 
@@ -438,10 +467,6 @@ update_screen:
     add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 !:
-    ldx screen_number
-    lda d018,x
-    sta $d018
-
     jmp draw_tiles
 
 .const SPRITE_OFFSET = $3f8
@@ -576,26 +601,29 @@ setup_screen:
     bne !-
 
     lda #32
+
+    ldx #80
+    lda #32
 !:
-    sta SCREEN3,x
-    sta SCREEN3+$100,x
-    sta SCREEN3+$200,x
-    sta SCREEN3+$300,x
-    inx
+    sta SCREEN,x
+    sta SCREEN2,x
+    dex
     bne !-
 
     ldx #0
 !:
     lda hud_msg,x
     beq !+
-    sta SCREEN3+40*23,x
+    sta SCREEN+40,x
+    sta SCREEN2+40,x
     inx
     jmp !-
 
-    lda #15
-    ldx #80
 !:
-    sta $d800+(40*23),x
+    lda #3
+    ldx #40
+!:
+    sta $d800+40,x
     dex
     bpl !-
 
@@ -688,8 +716,8 @@ bottom: .word 0
 d011:   .byte $10,$11,$12,$13,$14,$15,$16,$17
 
 d018:   .byte SCREEN_D018, SCREEN2_D018
-screen_lo: .byte <SCREEN2,<SCREEN
-screen_hi: .byte >SCREEN2,>SCREEN
+screen_lo: .byte <(SCREEN2+80),<(SCREEN+80)
+screen_hi: .byte >(SCREEN2+80),>(SCREEN+80)
 sprite_data_lo: .byte <SCREEN_SPRITES, <SCREEN2_SPRITES
 sprite_data_hi: .byte >SCREEN_SPRITES, >SCREEN2_SPRITES
 
