@@ -28,7 +28,7 @@
     .const FIXED_POINT = 8
     .const CHAR_HEIGHT = 8 // Well this is never gonna change but might as well constant it for readability
     .const CHAR_SUBPIXEL_SIZE = FIXED_POINT * CHAR_HEIGHT
-    .const MAP_LENGTH = 200
+    .const MAP_LENGTH = 12
     .const BOTTOM_TILE_AT_END = MAP_LENGTH - 24/TILE_HEIGHT
     .const SPRITE_MEM = $a000
     .const PLAYER_SPRITE_NO = 0
@@ -316,6 +316,7 @@ irq: {
     sta $fffe
     lda #>level_clear_irq
     sta $ffff
+    jmp !irq_done+
 !:
     inc frame
 
@@ -329,6 +330,7 @@ irq: {
     lda #HUD_IRQ_ROW
     sta $d012
 
+!irq_done:
     lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
     sta $d019
 
