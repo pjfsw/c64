@@ -16,6 +16,8 @@
     .const BORDER_COLOR = 0
     .const FG_COLOR = 6
     .const HUD_FG_COLOR = 0
+    .const HUD_MSG_OFFSET = 7
+    .const HUD_MSG_LENGTH = 28
     .const CHAR_COLOR = 5
     .const HUD_CHAR_COLOR = 15
     .const DEBUG_COLOR1 = 11
@@ -38,6 +40,13 @@
     .const SPRITE_IRQ_ROW = 70
     .const IRQ_ROW = $d8
 
+
+.macro set_top_row_colors(color) {
+    lda #color
+    .for (var i = HUD_MSG_OFFSET; i < HUD_MSG_OFFSET+HUD_MSG_LENGTH; i++) {
+        sta $d800+i
+    }
+}
 
 BasicUpstart2(program_start)
     *=$080e
@@ -254,7 +263,7 @@ sprite_irq: {
 
     lda #DEBUG_COLOR1
     sta $d020
-    jsr update_sprites
+    update_sprites()
     lda #BORDER_COLOR
     sta $d020
 
@@ -272,8 +281,8 @@ sprite_irq: {
     ldy save_y:#0
     ldx save_x:#0
     rti
-
-update_sprites:
+}
+.macro update_sprites()
 {
     ldy #0
     sty $d01c
@@ -303,9 +312,6 @@ update_sprites:
         ora sprite_x_hi + (7-i)
     }
     sta $d010
-
-    rts
-}
 }
 
 
@@ -611,14 +617,13 @@ setup_screen:
     dex
     bpl !-
 
-    ldx #0
+    ldx #hud_msg_length-1
 !:
     lda hud_msg,x
-    beq !+
-    sta SCREEN + 1,x
-    sta SCREEN2 + 1,x
-    inx
-    jmp !-
+    sta SCREEN + hud_msg_center,x
+    sta SCREEN2 + hud_msg_center,x
+    dex
+    bpl !-
 
 !:
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
@@ -631,14 +636,10 @@ setup_screen:
     rts
 
 hud_msg:
-    .text "ammo: "
-    .fill 5,$a0
-    .byte $65
-    .text " fuel: "
-    .fill 5,$a0
-    .text " dist: 00"
-    .byte 0
-
+    .text "ammo: 00 fuel: 00 dist: 00"
+hud_msg_end:
+.label hud_msg_length = hud_msg_end - hud_msg
+.label hud_msg_center = (40-(hud_msg_end-hud_msg))/2
 
 copy_sprites:
 {
@@ -668,13 +669,6 @@ copy_sprites:
     bcc !-
 
     rts
-}
-
-.macro set_top_row_colors(color) {
-    lda #color
-    .for (var i = 1; i < 32; i++) {
-        sta $d800+i
-    }
 }
 
 #import "../../lib/src/irq.asm"
