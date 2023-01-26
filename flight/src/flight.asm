@@ -54,19 +54,19 @@ BasicUpstart2(program_start)
 
 program_start:
     lda #0
-    sta frame
+    sta level_renderer.frame
     sta last_frame
     jsr copy_sprites
     sei
-    ldx #<main_irq
-    ldy #>main_irq
+    ldx #<level_renderer.main_irq
+    ldy #>level_renderer.main_irq
     lda #IRQ_ROW
     jsr irq.lib_setup_irq
     jsr setup_screen
     cli
 
 main:
-    lda frame
+    lda level_renderer.frame
     cmp last_frame
     beq main
     sta last_frame
@@ -85,11 +85,11 @@ update_fire:
     lda #0
     sta player_fire_x
     sta player_fire_x+1
-    lda sprite_y
+    lda level_renderer.sprite_y
     sbc #5
     sta player_fire_y
 
-    lda joyfire
+    lda level_renderer.joyfire
     beq !+
 
     lda player_x
@@ -99,20 +99,20 @@ update_fire:
 
 !:
     // TODO multiplex fire sprite between player and enemy fire
-    lda frame
+    lda level_renderer.frame
     and #1
     bne !odd_frame+
 
     lda player_fire_x
-    sta sprite_x + FIRE_SPRITE_NO
+    sta level_renderer.sprite_x + FIRE_SPRITE_NO
     lda player_fire_x + 1
-    sta sprite_x_hi + FIRE_SPRITE_NO
+    sta level_renderer.sprite_x_hi + FIRE_SPRITE_NO
     lda player_fire_y
-    sta sprite_y + FIRE_SPRITE_NO
+    sta level_renderer.sprite_y + FIRE_SPRITE_NO
 
     ldx gun_anim
     lda gun_anim_color,x
-    sta sprite_color + FIRE_SPRITE_NO
+    sta level_renderer.sprite_color + FIRE_SPRITE_NO
     inx
     cpx #gun_anim_color_end-gun_anim_color
     bne !+
@@ -123,8 +123,8 @@ update_fire:
 
 !odd_frame:
     lda #0
-    sta sprite_x + FIRE_SPRITE_NO
-    sta sprite_x_hi + FIRE_SPRITE_NO
+    sta level_renderer.sprite_x + FIRE_SPRITE_NO
+    sta level_renderer.sprite_x_hi + FIRE_SPRITE_NO
     rts
 
 }
@@ -134,32 +134,32 @@ update_shadow:
     lda player_x
     clc
     adc player_h
-    sta sprite_x + SHADOW_SPRITE_NO
+    sta level_renderer.sprite_x + SHADOW_SPRITE_NO
     rol
     and #1
-    ora sprite_x_hi + PLAYER_SPRITE_NO
-    sta sprite_x_hi + SHADOW_SPRITE_NO
+    ora level_renderer.sprite_x_hi + PLAYER_SPRITE_NO
+    sta level_renderer.sprite_x_hi + SHADOW_SPRITE_NO
     lda #PLAYER_BOTTOM_POS
-    sta sprite_y + SHADOW_SPRITE_NO
+    sta level_renderer.sprite_y + SHADOW_SPRITE_NO
     rts
 }
 .const HSPEED = 2
 .const VSPEED = 1
 move_player:
 {
-    ldx joyleft
+    ldx level_renderer.joyleft
     beq !+
     sub8(player_x, HSPEED, player_x)
 !:
-    ldx joyright
+    ldx level_renderer.joyright
     beq !+
     add8(player_x, HSPEED, player_x)
 !:
-    ldx joyup
+    ldx level_renderer.joyup
     beq !+
     sub8(player_h, VSPEED, player_h)
 !:
-    ldx joydown
+    ldx level_renderer.joydown
     beq !+
     add8(player_h, VSPEED, player_h)
 !:
@@ -197,14 +197,14 @@ bound_player:
     sta player_h+1
 !:
     lda player_x
-    sta sprite_x
+    sta level_renderer.sprite_x
     lda player_x+1
-    sta sprite_x_hi
+    sta level_renderer.sprite_x_hi
 
     lda #PLAYER_BOTTOM_POS
     sec
     sbc player_h
-    sta sprite_y
+    sta level_renderer.sprite_y
     rts
 
 level_clear_irq: {
@@ -220,208 +220,7 @@ level_clear_irq: {
     rti
 }
 
-hud_irq: {
-    sta save_a
-    stx save_x
-    sty save_y
-
-    debug2()
-
-    ldx level_renderer.scroll
-    lda d011,x
-    sta $d011
-
-    set_top_row_colors(CHAR_COLOR)
-    lda #FG_COLOR
-    sta $d021
-
-    debugoff(BORDER_COLOR)
-
-    next_irq(sprite_irq, SPRITE_IRQ_ROW)
-
-    lda save_a:#0
-    ldy save_y:#0
-    ldx save_x:#0
-    rti
-
-}
-
-sprite_irq: {
-    sta save_a
-    stx save_x
-    sty save_y
-
-    debug1()
-
-    ldy #0
-    sty $d01c
-    .for (var i = 0; i < 8; i++) {
-        lda sprite_ptr + i
-        sta (level_renderer.screen_sprite_ptr),y
-        iny
-    }
-
-    lda #$7f
-    sta $d015 // sprite enable
-    lda #0
-    sta $d01d // normal width
-
-    .for (var i = 0; i < 8; i++) {
-        lda sprite_x + i
-        sta $d000 + i * 2
-        lda sprite_y + i
-        sta $d001 + i * 2
-        lda sprite_color + i
-        sta $d027 + i // color
-    }
-
-    lda #0
-    .for (var i = 0; i < 8; i++) {
-        asl
-        ora sprite_x_hi + (7-i)
-    }
-    sta $d010
-
-    debugoff(BORDER_COLOR)
-
-    next_irq(main_irq, IRQ_ROW)
-
-    lda save_a:#0
-    ldy save_y:#0
-    ldx save_x:#0
-    rti
-}
-
-main_irq: {
-    sta save_a
-    stx save_x
-    sty save_y
-
-    debug2()
-    jsr level_renderer.update
-    debug1()
-    jsr update_hud
-    jsr update_anim
-    jsr read_input
-    set_top_row_colors(HUD_CHAR_COLOR)
-
-    lda bottom+1
-    cmp #BOTTOM_TILE_AT_END
-    bne !+
-
-    next_irq(level_clear_irq, IRQ_ROW)
-    jmp !irq_done+
-!:
-    inc frame
-
-    next_irq(hud_irq, HUD_IRQ_ROW)
-
-!irq_done:
-    debugoff(BORDER_COLOR)
-
-    lda save_a:#0
-    ldy save_y:#0
-    ldx save_x:#0
-    rti
-
-update_hud:
-{
-    lda #hud_sprite/64
-    ldy #0
-
-    .for (var i = 0; i < 7; i++) {
-        sta (level_renderer.screen_sprite_ptr),y
-        iny
-    }
-
-    lda #HUD_SPRITE_POS
-    .for (var i = 0; i < 7; i++) {
-        sta $d001 + i * 2
-    }
-    .for (var i = 0; i < 7; i++) {
-        lda #i*48+24
-        sta $d000 + i * 2
-    }
-    lda #$60
-    sta $d010
-    lda #$7f
-    sta $d015 // sprite enable
-    sta $d01d // double width
-    lda #$7f
-    sta $d01c // multicolor
-    lda #BORDER_COLOR
-    sta $d026
-    lda #HUD_CHAR_COLOR
-    sta $d025
-
-    lda #$1f
-    sta $d011
-
-    ldx level_renderer.screen_number
-    lda d018,x
-    sta $d018
-
-    ldx #20
-!:
-    nop
-    dex
-    bne !-
-
-    lda #HUD_FG_COLOR
-    sta $d021
-
-    rts
-}
-
-read_input:
-{
-    ldx #0
-    ldy #1
-    lda $dc00
-    stx joyup
-    lsr
-    bcs !+
-    sty joyup
-!:
-    stx joydown
-    lsr
-    bcs !+
-    sty joydown
-!:
-    stx joyleft
-    lsr
-    bcs !+
-    sty joyleft
-!:
-    stx joyright
-    lsr
-    bcs !+
-    sty joyright
-!:
-    stx joyfire
-    lsr
-    bcs !+
-    sty joyfire
-!:
-    rts
-}
-
-update_anim:
-    inc player_anim
-    lda player_anim
-    lsr
-    and #1
-    clc
-    adc #player_sprite/64
-    sta sprite_ptr + PLAYER_SPRITE_NO
-    adc #SHADOW_SPRITE_OFFSET
-    sta sprite_ptr + SHADOW_SPRITE_NO
-    lda #gun_sprite/64
-    sta sprite_ptr + FIRE_SPRITE_NO
-    rts
-
-    #import "level_renderer.asm"
-}
+#import "level_renderer.asm"
 
 .segment Default
 
@@ -454,9 +253,9 @@ setup_screen:
     sta player_h+1
 
     lda #PLAYER_BOTTOM_POS
-    sta sprite_y
+    sta level_renderer.sprite_y
     lda #PLAYER_BOTTOM_POS
-    sta sprite_y+1
+    sta level_renderer.sprite_y+1
 
     lda #FG_COLOR
     sta $d021
@@ -547,16 +346,6 @@ gun_anim_color_end:
 
 player_anim:
     .byte 0
-sprite_ptr:
-    .fill 8,0
-sprite_x:
-    .fill 8,0
-sprite_y:
-    .fill 8,0
-sprite_x_hi:
-    .fill 8,0
-sprite_color:
-    .byte 1,0,7,0,0,0,0,0
 
 .align $100
 sprite_data:
@@ -570,28 +359,11 @@ sprite_data_end:
 // y = pixel on screen (scroll)
 // n = 3-bit fixed point
 
-bottom: .word 0
-d011:   .byte $17,$10,$11,$12,$13,$14,$15,$16
-
-d018:   .byte SCREEN_D018, SCREEN2_D018
-
 .segment DATA
 
-frame:
-    .byte 0
 last_frame:
     .byte 0
 frames:
-    .byte 0
-joyup:
-    .byte 0
-joydown:
-    .byte 0
-joyleft:
-    .byte 0
-joyright:
-    .byte 0
-joyfire:
     .byte 0
 player_x:
     .word 0

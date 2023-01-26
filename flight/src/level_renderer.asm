@@ -3,7 +3,118 @@
 .namespace level_renderer {
     .segment Default
 
-    update:
+    hud_irq:
+    {
+        sta save_a
+        stx save_x
+        sty save_y
+
+        debug2()
+
+        ldx scroll
+        lda d011,x
+        sta $d011
+
+        set_top_row_colors(CHAR_COLOR)
+        lda #FG_COLOR
+        sta $d021
+
+        debugoff(BORDER_COLOR)
+
+        next_irq(sprite_irq, SPRITE_IRQ_ROW)
+
+        lda save_a:#0
+        ldy save_y:#0
+        ldx save_x:#0
+        rti
+    }
+
+    sprite_irq:
+    {
+        sta save_a
+        stx save_x
+        sty save_y
+
+        debug1()
+
+        switch_to_playfield_sprites()
+        debugoff(BORDER_COLOR)
+
+        next_irq(main_irq, IRQ_ROW)
+
+        lda save_a:#0
+        ldy save_y:#0
+        ldx save_x:#0
+        rti
+    }
+
+    .macro switch_to_playfield_sprites() {
+        ldy #0
+        sty $d01c
+        .for (var i = 0; i < 8; i++) {
+            lda sprite_ptr + i
+            sta (level_renderer.screen_sprite_ptr),y
+            iny
+        }
+
+        lda #$7f
+        sta $d015 // sprite enable
+        lda #0
+        sta $d01d // normal width
+
+        .for (var i = 0; i < 8; i++) {
+            lda sprite_x + i
+            sta $d000 + i * 2
+            lda sprite_y + i
+            sta $d001 + i * 2
+            lda sprite_color + i
+            sta $d027 + i // color
+        }
+
+        lda #0
+        .for (var i = 0; i < 8; i++) {
+            asl
+            ora sprite_x_hi + (7-i)
+        }
+        sta $d010
+    }
+
+    main_irq:
+    {
+        sta save_a
+        stx save_x
+        sty save_y
+
+        debug2()
+        jsr update_screen
+        debug1()
+        jsr update_hud
+        jsr update_anim
+        jsr read_input
+        set_top_row_colors(HUD_CHAR_COLOR)
+
+        lda bottom+1
+        cmp #BOTTOM_TILE_AT_END
+        bne !+
+
+        next_irq(level_clear_irq, IRQ_ROW)
+        jmp !irq_done+
+    !:
+        inc frame
+
+        next_irq(hud_irq, HUD_IRQ_ROW)
+
+    !irq_done:
+        debugoff(BORDER_COLOR)
+
+        lda save_a:#0
+        ldy save_y:#0
+        ldx save_x:#0
+        rti
+    }
+
+    update_screen:
+    {
         ldx scroll
         inx
         txa
@@ -19,8 +130,10 @@
         add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
     !:
         jmp draw_tiles
+    }
 
     flip_screen:
+    {
         lda screen_number
         eor #1
         sta screen_number
@@ -38,6 +151,7 @@
         sta screen_sprite_ptr+1
 
         rts
+    }
 
     draw_tiles:
     {
@@ -101,6 +215,104 @@
         rts
     }
 
+    update_hud:
+    {
+        lda #hud_sprite/64
+        ldy #0
+
+        .for (var i = 0; i < 7; i++) {
+            sta (level_renderer.screen_sprite_ptr),y
+            iny
+        }
+
+        lda #HUD_SPRITE_POS
+        .for (var i = 0; i < 7; i++) {
+            sta $d001 + i * 2
+        }
+        .for (var i = 0; i < 7; i++) {
+            lda #i*48+24
+            sta $d000 + i * 2
+        }
+        lda #$60
+        sta $d010
+        lda #$7f
+        sta $d015 // sprite enable
+        sta $d01d // double width
+        lda #$7f
+        sta $d01c // multicolor
+        lda #BORDER_COLOR
+        sta $d026
+        lda #HUD_CHAR_COLOR
+        sta $d025
+
+        lda #$1f
+        sta $d011
+
+        ldx level_renderer.screen_number
+        lda d018,x
+        sta $d018
+
+        ldx #20
+    !:
+        nop
+        dex
+        bne !-
+
+        lda #HUD_FG_COLOR
+        sta $d021
+
+        rts
+    }
+
+    read_input:
+    {
+        ldx #0
+        ldy #1
+        lda $dc00
+        stx joyup
+        lsr
+        bcs !+
+        sty joyup
+    !:
+        stx joydown
+        lsr
+        bcs !+
+        sty joydown
+    !:
+        stx joyleft
+        lsr
+        bcs !+
+        sty joyleft
+    !:
+        stx joyright
+        lsr
+        bcs !+
+        sty joyright
+    !:
+        stx joyfire
+        lsr
+        bcs !+
+        sty joyfire
+    !:
+        rts
+    }
+
+    update_anim:
+    {
+        inc player_anim
+        lda player_anim
+        lsr
+        and #1
+        clc
+        adc #player_sprite/64
+        sta sprite_ptr + PLAYER_SPRITE_NO
+        adc #SHADOW_SPRITE_OFFSET
+        sta sprite_ptr + SHADOW_SPRITE_NO
+        lda #gun_sprite/64
+        sta sprite_ptr + FIRE_SPRITE_NO
+        rts
+    }
+
     .align $100
     #import "level.asm"
 
@@ -116,10 +328,37 @@
     scroll: .byte 7
     screen_number: .byte 0
 
-    .segment DATA
+    d011:   .byte $17,$10,$11,$12,$13,$14,$15,$16
+    d018:   .byte SCREEN_D018, SCREEN2_D018
 
+    sprite_ptr:
+        .fill 8,0
+    sprite_x:
+        .fill 8,0
+    sprite_y:
+        .fill 8,0
+    sprite_x_hi:
+        .fill 8,0
+    sprite_color:
+        .byte 1,0,7,0,0,0,0,0
+
+    .segment DATA
+    frame:
+        .byte 0
+
+    bottom: .word 0
     bottom_render: .word 0
     current_render: .word 0
+    joyup:
+        .byte 0
+    joydown:
+        .byte 0
+    joyleft:
+        .byte 0
+    joyright:
+        .byte 0
+    joyfire:
+        .byte 0
 
     .segment ZP
     .zp {
