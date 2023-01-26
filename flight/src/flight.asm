@@ -10,7 +10,7 @@
     .const PLAYER_RIGHT_BOUND = 320
     .const PLAYER_TOP_BOUND = 16
     .const PLAYER_BOTTOM_BOUND = 2
-    .const PLAYER_BOTTOM_POS = 220
+    .const PLAYER_BOTTOM_POS = 224
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
@@ -33,10 +33,10 @@
     .const SHADOW_SPRITE_NO = 1
     .const FIRE_SPRITE_NO = 2
     .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
-    .const HUD_SPRITE_POS = 53
-    .const HUD_IRQ_ROW = 67
-    .const SPRITE_IRQ_ROW = 76
-    .const IRQ_ROW = $e0
+    .const HUD_SPRITE_POS = 50
+    .const HUD_IRQ_ROW = 59
+    .const SPRITE_IRQ_ROW = 70
+    .const IRQ_ROW = $d8
 
 
 BasicUpstart2(program_start)
@@ -384,7 +384,8 @@ update_hud:
     lda #HUD_CHAR_COLOR
     sta $d025
 
-    lda #$10
+    .print "HERE IS " + toHexString(*)
+    lda #$1b
     sta $d011
 
     ldx screen_number
@@ -614,7 +615,9 @@ setup_screen:
 !:
     lda hud_msg,x
     beq !+
+    sta SCREEN,x
     sta SCREEN+40,x
+    sta SCREEN2,x
     sta SCREEN2+40,x
     inx
     jmp !-
@@ -666,7 +669,7 @@ copy_sprites:
 .macro set_top_row_colors(color) {
     lda #color
     .for (var i = 0; i < 24; i++) {
-        sta $d800+40+i
+        sta $d800+i
     }
 }
 
@@ -714,11 +717,11 @@ y_to_levelmap_hi: .fill MAP_LENGTH,>(levelmap + i * TILES_PER_ROW)
 
 scroll: .byte 7
 bottom: .word 0
-d011:   .byte $10,$11,$12,$13,$14,$15,$16,$17
+d011:   .byte $13,$14,$15,$16,$17,$10,$11,$12
 
 d018:   .byte SCREEN_D018, SCREEN2_D018
-screen_lo: .byte <(SCREEN2+80),<(SCREEN+80)
-screen_hi: .byte >(SCREEN2+80),>(SCREEN+80)
+screen_lo: .byte <(SCREEN2+40),<(SCREEN+40)
+screen_hi: .byte >(SCREEN2+40),>(SCREEN+40)
 sprite_data_lo: .byte <SCREEN_SPRITES, <SCREEN2_SPRITES
 sprite_data_hi: .byte >SCREEN_SPRITES, >SCREEN2_SPRITES
 
