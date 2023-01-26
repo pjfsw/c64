@@ -57,10 +57,10 @@ program_start:
     sta last_frame
     jsr copy_sprites
     sei
-    ldx #<irq
-    ldy #>irq
+    ldx #<main_irq
+    ldy #>main_irq
     lda #IRQ_ROW
-    jsr lib_setup_irq
+    jsr irq.lib_setup_irq
     jsr setup_screen
     cli
 
@@ -239,15 +239,7 @@ hud_irq: {
     lda #BORDER_COLOR
     sta $d020
 
-    lda #<sprite_irq
-    sta $fffe
-    lda #>sprite_irq
-    sta $ffff
-    lda #SPRITE_IRQ_ROW
-    sta $d012
-
-    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
-    sta $d019
+    next_irq(sprite_irq, SPRITE_IRQ_ROW)
 
     lda save_a:#0
     ldy save_y:#0
@@ -267,15 +259,7 @@ sprite_irq: {
     lda #BORDER_COLOR
     sta $d020
 
-    lda #<irq
-    sta $fffe
-    lda #>irq
-    sta $ffff
-    lda #IRQ_ROW
-    sta $d012
-
-    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
-    sta $d019
+    next_irq(main_irq, IRQ_ROW)
 
     lda save_a:#0
     ldy save_y:#0
@@ -315,7 +299,7 @@ sprite_irq: {
 }
 
 
-irq: {
+main_irq: {
     sta save_a
     stx save_x
     sty save_y
@@ -333,27 +317,17 @@ irq: {
     lda bottom+1
     cmp #BOTTOM_TILE_AT_END
     bne !+
-    lda #<level_clear_irq
-    sta $fffe
-    lda #>level_clear_irq
-    sta $ffff
+
+    next_irq(level_clear_irq, IRQ_ROW)
     jmp !irq_done+
 !:
     inc frame
 
-    lda #BORDER_COLOR
-    sta $d020
-
-    lda #<hud_irq
-    sta $fffe
-    lda #>hud_irq
-    sta $ffff
-    lda #HUD_IRQ_ROW
-    sta $d012
+    next_irq(hud_irq, HUD_IRQ_ROW)
 
 !irq_done:
-    lda #$ff   // this is the orthodox and safe way of clearing the interrupt condition of the VICII.
-    sta $d019
+    lda #BORDER_COLOR
+    sta $d020
 
     lda save_a:#0
     ldy save_y:#0
@@ -626,12 +600,13 @@ setup_screen:
     bpl !-
 
 !:
+/*
     add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
 
     jsr irq.flip_screen
     .for (var i = 0; i < FRAMES_TO_RENDER_TILES; i++) {
         jsr irq.draw_tiles
-    }
+    }*/
 
     rts
 
