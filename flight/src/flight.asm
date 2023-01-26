@@ -34,7 +34,7 @@
     .const FIRE_SPRITE_NO = 2
     .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
     .const HUD_SPRITE_POS = 50
-    .const HUD_IRQ_ROW = 59
+    .const HUD_IRQ_ROW = 62
     .const SPRITE_IRQ_ROW = 70
     .const IRQ_ROW = $d8
 
@@ -385,7 +385,7 @@ update_hud:
     sta $d025
 
     .print "HERE IS " + toHexString(*)
-    lda #$1b
+    lda #$1f
     sta $d011
 
     ldx screen_number
@@ -603,22 +603,20 @@ setup_screen:
 
     lda #32
 
-    ldx #80
+    ldx #40
     lda #32
 !:
     sta SCREEN,x
     sta SCREEN2,x
     dex
-    bne !-
+    bpl !-
 
     ldx #0
 !:
     lda hud_msg,x
     beq !+
-    sta SCREEN,x
-    sta SCREEN+40,x
-    sta SCREEN2,x
-    sta SCREEN2+40,x
+    sta SCREEN + 1,x
+    sta SCREEN2 + 1,x
     inx
     jmp !-
 
@@ -633,8 +631,14 @@ setup_screen:
     rts
 
 hud_msg:
-    .text "ammo: 0000   fuel: 0000"
+    .text "ammo: "
+    .fill 5,$a0
+    .byte $65
+    .text " fuel: "
+    .fill 5,$a0
+    .text " dist: 00"
     .byte 0
+
 
 copy_sprites:
 {
@@ -668,7 +672,7 @@ copy_sprites:
 
 .macro set_top_row_colors(color) {
     lda #color
-    .for (var i = 0; i < 24; i++) {
+    .for (var i = 1; i < 32; i++) {
         sta $d800+i
     }
 }
@@ -717,7 +721,7 @@ y_to_levelmap_hi: .fill MAP_LENGTH,>(levelmap + i * TILES_PER_ROW)
 
 scroll: .byte 7
 bottom: .word 0
-d011:   .byte $13,$14,$15,$16,$17,$10,$11,$12
+d011:   .byte $17,$10,$11,$12,$13,$14,$15,$16
 
 d018:   .byte SCREEN_D018, SCREEN2_D018
 screen_lo: .byte <(SCREEN2+40),<(SCREEN+40)
