@@ -20,8 +20,6 @@
     .const HUD_MSG_LENGTH = 28
     .const CHAR_COLOR = 5
     .const HUD_CHAR_COLOR = 15
-    .const DEBUG_COLOR1 = 11
-    .const DEBUG_COLOR2 = 12
     .const TILE_WIDTH = 4
     .const TILES_PER_ROW = 40/TILE_WIDTH
     .const TILE_HEIGHT = 4
@@ -72,13 +70,11 @@ main:
     sec
     sbc last_frame
     sta frames
-    lda #DEBUG_COLOR1
-    sta $d020
+    debug1()
     jsr move_player
     jsr update_shadow
     jsr update_fire
-    lda #BORDER_COLOR
-    sta $d020
+    debugoff(BORDER_COLOR)
     jmp main
 
 update_fire:
@@ -226,8 +222,8 @@ hud_irq: {
     stx save_x
     sty save_y
 
-    lda #DEBUG_COLOR2
-    sta $d020
+    debug2()
+
     ldx scroll
     lda d011,x
     sta $d011
@@ -236,8 +232,7 @@ hud_irq: {
     lda #FG_COLOR
     sta $d021
 
-    lda #BORDER_COLOR
-    sta $d020
+    debugoff(BORDER_COLOR)
 
     next_irq(sprite_irq, SPRITE_IRQ_ROW)
 
@@ -253,11 +248,9 @@ sprite_irq: {
     stx save_x
     sty save_y
 
-    lda #DEBUG_COLOR1
-    sta $d020
+    debug1()
     update_sprites()
-    lda #BORDER_COLOR
-    sta $d020
+    debugoff(BORDER_COLOR)
 
     next_irq(main_irq, IRQ_ROW)
 
@@ -298,17 +291,14 @@ sprite_irq: {
     sta $d010
 }
 
-
 main_irq: {
     sta save_a
     stx save_x
     sty save_y
 
-    lda #DEBUG_COLOR2
-    sta $d020
+    debug2()
     jsr update_screen
-    lda #DEBUG_COLOR1
-    sta $d020
+    debug1()
     jsr update_hud
     jsr update_anim
     jsr read_input
@@ -326,8 +316,7 @@ main_irq: {
     next_irq(hud_irq, HUD_IRQ_ROW)
 
 !irq_done:
-    lda #BORDER_COLOR
-    sta $d020
+    debugoff(BORDER_COLOR)
 
     lda save_a:#0
     ldy save_y:#0
@@ -646,6 +635,7 @@ copy_sprites:
     rts
 }
 
+#import "debug.asm"
 #import "../../lib/src/irq.asm"
 #import "arithmetic.asm"
 
