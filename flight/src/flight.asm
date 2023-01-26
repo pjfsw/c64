@@ -1,4 +1,5 @@
     .segmentdef DATA[startAfter= "Default", align=$100, virtual]
+    .segmentdef ZP[start=$02, virtual]
 
     .const SCREEN=$8800
     .const SCREEN_D018=$24
@@ -251,24 +252,12 @@ sprite_irq: {
     sty save_y
 
     debug1()
-    update_sprites()
-    debugoff(BORDER_COLOR)
 
-    next_irq(main_irq, IRQ_ROW)
-
-    lda save_a:#0
-    ldy save_y:#0
-    ldx save_x:#0
-    rti
-}
-
-.macro update_sprites()
-{
     ldy #0
     sty $d01c
     .for (var i = 0; i < 8; i++) {
         lda sprite_ptr + i
-        sta (screen_sprite_ptr),y
+        sta (level_renderer.screen_sprite_ptr),y
         iny
     }
 
@@ -292,6 +281,15 @@ sprite_irq: {
         ora sprite_x_hi + (7-i)
     }
     sta $d010
+
+    debugoff(BORDER_COLOR)
+
+    next_irq(main_irq, IRQ_ROW)
+
+    lda save_a:#0
+    ldy save_y:#0
+    ldx save_x:#0
+    rti
 }
 
 main_irq: {
@@ -330,9 +328,9 @@ update_hud:
 {
     lda #hud_sprite/64
     ldy #0
-//store_sprite_ptrs:
+
     .for (var i = 0; i < 7; i++) {
-        sta (screen_sprite_ptr),y
+        sta (level_renderer.screen_sprite_ptr),y
         iny
     }
 
@@ -356,11 +354,10 @@ update_hud:
     lda #HUD_CHAR_COLOR
     sta $d025
 
-    .print "HERE IS " + toHexString(*)
     lda #$1f
     sta $d011
 
-    ldx screen_number
+    ldx level_renderer.screen_number
     lda d018,x
     sta $d018
 
@@ -463,9 +460,6 @@ setup_screen:
 
     lda #FG_COLOR
     sta $d021
-    ldx level_renderer.scroll
-    lda d011,x
-    sta $d011
 
     lda #CHAR_COLOR
     ldx #0
@@ -478,6 +472,14 @@ setup_screen:
     bne !-
 
     lda #32
+    ldx #0
+!:
+    .for (var i = 0; i < 4; i++) {
+        sta SCREEN + i * $100,x
+        sta SCREEN2 + i * $100,x
+    }
+    inx
+    bne !-
 
     ldx #40
     lda #32
@@ -494,15 +496,6 @@ setup_screen:
     sta SCREEN2 + hud_msg_center,x
     dex
     bpl !-
-
-!:
-/*
-    add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
-
-    jsr irq.flip_screen
-    .for (var i = 0; i < FRAMES_TO_RENDER_TILES; i++) {
-        jsr irq.draw_tiles
-    }*/
 
     rts
 
@@ -582,8 +575,6 @@ d011:   .byte $17,$10,$11,$12,$13,$14,$15,$16
 
 d018:   .byte SCREEN_D018, SCREEN2_D018
 
-screen_number: .byte 0
-
 .segment DATA
 
 frame:
@@ -625,12 +616,9 @@ gun_sprite:
 shadow_sprite:
     .fill 64,0
 
-*=$02 "Zeropage" virtual
+.segment ZP
 .zp {
-    screen_ptr: .word 0
-    screen_sprite_ptr: .word 0
     copy_src_ptr: .word 0
     copy_dst_ptr: .word 0
-    tile_to_render: .word 0
     row_in_tile: .byte 0
 }

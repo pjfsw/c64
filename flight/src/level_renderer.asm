@@ -114,10 +114,18 @@
     sprite_data_lo: .byte <SCREEN_SPRITES, <SCREEN2_SPRITES
     sprite_data_hi: .byte >SCREEN_SPRITES, >SCREEN2_SPRITES
     scroll: .byte 7
+    screen_number: .byte 0
 
     .segment DATA
 
     bottom_render: .word 0
     current_render: .word 0
+
+    .segment ZP
+    .zp {
+        screen_sprite_ptr: .word 0
+        screen_ptr: .word 0
+        tile_to_render: .word 0
+    }
 
 }
