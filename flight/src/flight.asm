@@ -74,10 +74,13 @@ main:
     sec
     sbc last_frame
     sta frames
-    debug3()
+    lda next_npc
+    sta $d020
+    //debug3()
     jsr move_player
-    jsr update_fire
+    jsr cycle_npc
     jsr update_npc
+    jsr update_fire
     jsr draw_sprites
     debugoff(BORDER_COLOR)
     jmp main
@@ -89,6 +92,7 @@ draw_sprites:
     .for (var i = 0; i < 4; i++) {
         ldx #0
         ldy #0
+
         // For each sprite we calc the difference between the top coord and the sprite coord
         sub16mem(world_top, sprite_y_coord + i * 2, temp_coord)
         lda temp_coord+1
@@ -122,20 +126,35 @@ draw_sprites:
     }
 }
 
+cycle_npc: {
+    add16(level_renderer.bottom, 1200, temp_coord)
+    ldx next_npc
+    stx $d021
+    cmp16x(npc_start_lo, npc_start_hi, temp_coord)
+    bcc !+
+    rts
+!:  // Next NPC in frame, setup game logic things for that NPC here
+    //lda temp_coord
+    lda npc_start_lo,x
+    sta sprite_y_coord.npc
+    //lda temp_coord+1
+    lda npc_start_hi,x
+    sta sprite_y_coord.npc+1
+    lda #255
+    sta sprite_x_coord.npc
+    lda #0
+    sta sprite_x_coord.npc+1
+    inx
+    stx next_npc
+    rts
+}
+
 update_npc:
 {
     lda #npc_sprite/64
     sta level_renderer.sprite_ptr + NPC_SPRITE_NO
+    lda next_npc
     sta level_renderer.sprite_color + NPC_SPRITE_NO
-    .const npcy = 8
-    lda #<tiles_to_world(npcy)
-    sta sprite_y_coord.npc
-    lda #>tiles_to_world(npcy)
-    sta sprite_y_coord.npc+1
-    lda #50
-    sta sprite_x_coord.npc
-    lda #0
-    sta sprite_x_coord.npc+1
     rts
 }
 
@@ -376,6 +395,14 @@ world_coord_high_bits:
 height_to_world:
     .fill 32,i*8
 
+next_npc:
+    .byte 0
+
+npc_start_lo:
+    .fill 64, <(tiles_to_world(i*6+8))
+npc_start_hi:
+    .fill 64, >(tiles_to_world(i*6+8))
+
 .align $100
 sprite_data:
 #import "spritedata.asm"
@@ -425,6 +452,7 @@ last_frame:
     .byte 0
 frames:
     .byte 0
+
 *=$8800 "Screen1" virtual
     .fill $400,0
 *=$8c00 "Screen2" virtual

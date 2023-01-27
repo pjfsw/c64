@@ -85,3 +85,16 @@
 .macro cmp16(memory,immediate) {
     cmp16lo_hi(memory,memory+1,immediate)
 }
+
+// Compare with index in X
+.macro cmp16x(low_byte,high_byte,immediate) {
+//16-bit number comparison...
+    lda high_byte,x    // MSB of 1st number
+    cmp #>immediate   // MSB of 2nd number
+    bcc !+            // value < immediate
+    bne !+            // value > immediate
+
+    lda low_byte,x      // LSB of 1st number
+    cmp #<immediate   // LSB of 2nd number
+!:
+}
