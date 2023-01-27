@@ -115,6 +115,7 @@
 
     update_screen:
     {
+        add8(bottom, 8, bottom)
         ldx scroll
         inx
         txa
@@ -126,7 +127,7 @@
 
         jsr flip_screen
 
-        add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
+        //add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
         add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
     !:
         jmp draw_tiles
@@ -368,3 +369,23 @@
     }
 
 }
+
+    // World coordinates:
+    // TTTTTTTT CCxxxsss
+    // T = Tile number
+    // C = Char within tile
+    // x = pixel within char
+    // s = subpixel
+
+.function pixels_to_world(pixels) {
+    .return pixels * 8
+}
+
+.function chars_to_world(chars) {
+    .return pixels_to_world(chars*8)
+}
+.function tiles_to_world(tiles) {
+    .return chars_to_world(tiles * 4)
+}
+
+

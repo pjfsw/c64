@@ -1,12 +1,13 @@
 // SPRITE DATA
     .align 64
+
 //hud_sprite:
     .fill 1*3,%01010101
     .fill 1*3,%111111111
     .fill 9*3,0
     .fill 7*3,%111111111
     .fill 1*3,%01010101
-    .fill 4*3,0
+    .fill 2*3,0
     .byte 0
 //player_sprite:
     .for (var i = 0; i < 2; i++) {
@@ -50,4 +51,6 @@ gun_orig:
     .byte %00111000,%00000000,%00011100
     .byte %00010000,%00000000,%00001000
     .fill 64-(*-gun_orig),0
-//shadow_sprite:
+npc_chopper:
+    .fill 63,255
+    .byte 0

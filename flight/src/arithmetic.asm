@@ -1,9 +1,28 @@
 #importonce
 
+.macro copy16(src,dest) {
+    lda src
+    sta dest
+    lda src+1
+    sta dest+1
+}
+
 .macro add8(src,immediate,dest) {
     clc
     lda src
     adc #immediate
+    sta dest
+    bcc !+
+    inc dest+1
+!:
+}
+
+.macro add_16_8_mem(a16,b8,dest) {
+    clc
+    lda a16+1
+    sta dest+1
+    lda a16
+    adc b8
     sta dest
     bcc !+
     inc dest+1
@@ -37,6 +56,16 @@
     sta dest
     lda src+1
     sbc #>immediate
+    sta dest+1
+}
+
+.macro sub16mem(a,b,dest) {
+    sec
+    lda a
+    sbc b
+    sta dest
+    lda a+1
+    sbc b+1
     sta dest+1
 }
 

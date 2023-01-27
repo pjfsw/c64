@@ -11,9 +11,9 @@
 
     .const PLAYER_LEFT_BOUND = 24
     .const PLAYER_RIGHT_BOUND = 320
-    .const PLAYER_TOP_BOUND = 16
+    .const PLAYER_TOP_BOUND = 15
     .const PLAYER_BOTTOM_BOUND = 2
-    .const PLAYER_BOTTOM_POS = 224
+    .const PLAYER_BOTTOM_POS = 24
     .const ROWS_TO_RENDER_PER_FRAME=3
     .const FRAMES_TO_RENDER_TILES=8
     .const BORDER_COLOR = 0
@@ -35,6 +35,7 @@
     .const PLAYER_SPRITE_NO = 0
     .const SHADOW_SPRITE_NO = 1
     .const FIRE_SPRITE_NO = 2
+    .const NPC_SPRITE_NO = 3
     .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
     .const HUD_SPRITE_POS = 50
     .const HUD_IRQ_ROW = 62
@@ -73,42 +74,90 @@ main:
     sec
     sbc last_frame
     sta frames
-    debug1()
+    debug3()
     jsr move_player
-    jsr update_shadow
     jsr update_fire
+    jsr update_npc
+    jsr draw_sprites
     debugoff(BORDER_COLOR)
     jmp main
+
+draw_sprites:
+{
+    // World coordinates are pointing upwards, so first we add a screen length to the bottom coordinate
+    add16(level_renderer.bottom, chars_to_world(24), world_top)
+    .for (var i = 0; i < 4; i++) {
+        ldx #0
+        ldy #0
+        // For each sprite we calc the difference between the top coord and the sprite coord
+        sub16mem(world_top, sprite_y_coord + i * 2, temp_coord)
+        lda temp_coord+1
+        cmp #7
+        bcs !+ // Out of bounds
+
+        // Lowest byte contains CCxxxsss, C = char in tile, x = x-coord, so we get rid of the subpixels
+        lda temp_coord
+        lsr
+        lsr
+        lsr
+        clc
+        adc #50 // sprite offset
+        sta temp_y
+        // Fetch the three lower bits in the high byte and merge them to get a screen 256-pixel value
+        lda temp_coord+1
+        and #7
+        tax
+        lda world_coord_high_bits,x
+        clc
+        adc temp_y
+        // Now we are in sprite coordinates so store it in the correct sprite position
+        sta level_renderer.sprite_y + i
+
+        // X-axis is just screen coords, plain copy
+        ldx sprite_x_coord + i * 2
+        ldy sprite_x_coord + i * 2 + 1
+    !:
+        stx level_renderer.sprite_x + i
+        sty level_renderer.sprite_x_hi + i
+    }
+}
+
+update_npc:
+{
+    lda #npc_sprite/64
+    sta level_renderer.sprite_ptr + NPC_SPRITE_NO
+    sta level_renderer.sprite_color + NPC_SPRITE_NO
+    .const npcy = 8
+    lda #<tiles_to_world(npcy)
+    sta sprite_y_coord.npc
+    lda #>tiles_to_world(npcy)
+    sta sprite_y_coord.npc+1
+    lda #50
+    sta sprite_x_coord.npc
+    lda #0
+    sta sprite_x_coord.npc+1
+    rts
+}
 
 update_fire:
 {
     lda #0
-    sta player_fire_x
-    sta player_fire_x+1
-    lda level_renderer.sprite_y
-    sbc #5
-    sta player_fire_y
+    sta sprite_x_coord.gun
+    sta sprite_x_coord.gun+1
+    add16(sprite_y_coord.player, pixels_to_world(5), sprite_y_coord.gun)
 
     lda level_renderer.joyfire
     beq !+
 
-    lda player_x
-    sta player_fire_x
-    lda player_x + 1
-    sta player_fire_x + 1
-
+    lda sprite_x_coord.player
+    sta sprite_x_coord.gun
+    lda sprite_x_coord.player + 1
+    sta sprite_x_coord.gun + 1
 !:
     // TODO multiplex fire sprite between player and enemy fire
     lda level_renderer.frame
-    and #1
+    and #2
     bne !odd_frame+
-
-    lda player_fire_x
-    sta level_renderer.sprite_x + FIRE_SPRITE_NO
-    lda player_fire_x + 1
-    sta level_renderer.sprite_x_hi + FIRE_SPRITE_NO
-    lda player_fire_y
-    sta level_renderer.sprite_y + FIRE_SPRITE_NO
 
     ldx gun_anim
     lda gun_anim_color,x
@@ -129,22 +178,7 @@ update_fire:
 
 }
 
-update_shadow:
-{
-    lda player_x
-    clc
-    adc player_h
-    sta level_renderer.sprite_x + SHADOW_SPRITE_NO
-    rol
-    and #1
-    ora level_renderer.sprite_x_hi + PLAYER_SPRITE_NO
-    sta level_renderer.sprite_x_hi + SHADOW_SPRITE_NO
-    lda #PLAYER_BOTTOM_POS
-    sta level_renderer.sprite_y + SHADOW_SPRITE_NO
-    rts
-}
 .const HSPEED = 2
-.const VSPEED = 1
 move_player:
 {
     ldx level_renderer.joyleft
@@ -157,17 +191,16 @@ move_player:
 !:
     ldx level_renderer.joyup
     beq !+
-    sub8(player_h, VSPEED, player_h)
+    lda player_h
+    beq !+
+    dec player_h
 !:
     ldx level_renderer.joydown
     beq !+
-    add8(player_h, VSPEED, player_h)
+    inc player_h
 !:
-    jmp bound_player
-    rts
-}
 
-bound_player:
+    // Set player bounds
     cmp16(player_x, PLAYER_LEFT_BOUND)
     bcs !+
     lda #<PLAYER_LEFT_BOUND
@@ -182,30 +215,29 @@ bound_player:
     lda #>PLAYER_RIGHT_BOUND
     sta player_x+1
 !:
-    cmp16(player_h, PLAYER_BOTTOM_BOUND)
+    lda player_h
+    cmp #PLAYER_BOTTOM_BOUND
     bcs !+
-    lda #<PLAYER_BOTTOM_BOUND
+    lda #PLAYER_BOTTOM_BOUND
     sta player_h
-    lda #>PLAYER_BOTTOM_BOUND
-    sta player_h+1
 !:
-    cmp16(player_h, PLAYER_TOP_BOUND)
+    cmp #PLAYER_TOP_BOUND
     bcc !+
-    lda #<PLAYER_TOP_BOUND
+    lda #PLAYER_TOP_BOUND
     sta player_h
-    lda #>PLAYER_TOP_BOUND
-    sta player_h+1
 !:
-    lda player_x
-    sta level_renderer.sprite_x
-    lda player_x+1
-    sta level_renderer.sprite_x_hi
+    copy16(player_x, sprite_x_coord.player)
+    add16(level_renderer.bottom, pixels_to_world(PLAYER_BOTTOM_POS), sprite_y_coord.player)
+    copy16(sprite_y_coord.player, sprite_y_coord.shadow)
+    ldx player_h
+    lda height_to_world,x
+    sta h_world_temp
+    add_16_8_mem(sprite_y_coord.player, h_world_temp, sprite_y_coord.player)
 
-    lda #PLAYER_BOTTOM_POS
-    sec
-    sbc player_h
-    sta level_renderer.sprite_y
+    add_16_8_mem(player_x, player_h, sprite_x_coord.shadow)
+
     rts
+}
 
 level_clear_irq: {
     sta save_a
@@ -247,15 +279,6 @@ setup_screen:
     sta player_x
     lda #0
     sta player_x+1
-    lda #<PLAYER_BOTTOM_BOUND
-    sta player_h
-    lda #>PLAYER_BOTTOM_BOUND
-    sta player_h+1
-
-    lda #PLAYER_BOTTOM_POS
-    sta level_renderer.sprite_y
-    lda #PLAYER_BOTTOM_POS
-    sta level_renderer.sprite_y+1
 
     lda #FG_COLOR
     sta $d021
@@ -330,6 +353,7 @@ copy_sprites:
     sta copy_src_ptr+1
     cmp #>sprite_data_end
     bcc !-
+    beq !-
 
     rts
 }
@@ -347,6 +371,11 @@ gun_anim_color_end:
 player_anim:
     .byte 0
 
+world_coord_high_bits:
+    .fill 8,i*32
+height_to_world:
+    .fill 32,i*8
+
 .align $100
 sprite_data:
 #import "spritedata.asm"
@@ -361,18 +390,41 @@ sprite_data_end:
 
 .segment DATA
 
+// IN WORLD COORDINATES
+sprite_y_coord: {
+    player: .word 0
+    shadow: .word 0
+    gun:    .word 0
+    npc:    .word 0
+            .fillword 4,0
+}
+
+// IN SCREEN CORDINATES
+sprite_x_coord: {
+    player: .word 0
+    shadow: .word 0
+    gun:    .word 0
+    npc:    .word 0
+            .fillword 4,0
+}
+
+player_x:
+    .word 0
+player_h:
+    .byte 0
+h_world_temp:
+    .byte 0
+
+world_top:
+    .word 0
+temp_coord:
+    .word 0
+temp_y:
+    .byte 0
 last_frame:
     .byte 0
 frames:
     .byte 0
-player_x:
-    .word 0
-player_h:
-    .word 0
-player_fire_x:
-    .word 0
-player_fire_y:
-    .word 0
 *=$8800 "Screen1" virtual
     .fill $400,0
 *=$8c00 "Screen2" virtual
@@ -384,6 +436,8 @@ hud_sprite:
 player_sprite:
     .fill 128,0
 gun_sprite:
+    .fill 64,0
+npc_sprite:
     .fill 64,0
 shadow_sprite:
     .fill 64,0
