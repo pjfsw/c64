@@ -7,6 +7,17 @@ update_npc_hit:
     cmp #$ff
     beq !+
 
+    // Compare heights first
+    ldy npc_h_index
+    lda npc_h,y
+    adc #5 // Add some slack in height comparison
+    cmp player_h
+    bcc !+
+    sec
+    sbc #7
+    cmp player_h
+    bcs !+
+
     ldx npc_index
 
     // 16-bit indexed from here
