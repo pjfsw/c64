@@ -41,6 +41,7 @@
     .const HUD_IRQ_ROW = 62
     .const SPRITE_IRQ_ROW = 70
     .const IRQ_ROW = $d8
+    .const NUMBER_OF_NPCS = 50
 
 
 .macro set_top_row_colors(color) {
@@ -78,18 +79,25 @@ main:
     sta $d020
     //debug3()
     jsr move_player
+    lda next_npc
+    cmp NUMBER_OF_NPCS
+    bcs !+
     jsr cycle_npc
-    jsr update_npc
+!:
+    jsr npc_move_call:do_nothing
     jsr update_fire
     jsr draw_sprites
     debugoff(BORDER_COLOR)
     jmp main
 
+do_nothing:
+    rts
+
 draw_sprites:
 {
     // World coordinates are pointing upwards, so first we add a screen length to the bottom coordinate
     add16(level_renderer.bottom, chars_to_world(24), world_top)
-    .for (var i = 0; i < 4; i++) {
+    .for (var i = 0; i < 5; i++) {
         ldx #0
         ldy #0
 
@@ -132,30 +140,44 @@ cycle_npc: {
     adc #6
     ldx next_npc
     stx $d021
-    cmp npc_start_hi,x
+    cmp npc_trigger,x
     bcs !+
     rts
 !:  // Next NPC in frame, setup game logic things for that NPC here
     lda #0
-    sta sprite_y_coord.npc
-    lda npc_start_hi,x
-    sta sprite_y_coord.npc+1
-    lda #50
-    sta sprite_x_coord.npc
-    lda #0
-    sta sprite_x_coord.npc+1
+    ldy next_npc_sprite
+    sta sprite_y_coord.npc,y
+    lda npc_trigger,x
+    sta sprite_y_coord.npc+1,y
+    lda npc_trigger_x_coord,y
+    sta sprite_x_coord.npc,y
+    lda npc_trigger_x_coord+1,y
+    sta sprite_x_coord.npc+1,y
+
+    lda npc_move_func_lo,x
+    sta npc_move_call
+    lda npc_move_func_hi,x
+    sta npc_move_call + 1
 
     inx
     stx next_npc
+
+    tya
+    eor #%00000010  // Toggle two words back and forth
+    sta next_npc_sprite
+
+
     rts
 }
 
-update_npc:
+move_npc:
 {
     lda #npc_sprite/64
     sta level_renderer.sprite_ptr + NPC_SPRITE_NO
+    sta level_renderer.sprite_ptr + NPC_SPRITE_NO + 1
     lda #0
     sta level_renderer.sprite_color + NPC_SPRITE_NO
+    sta level_renderer.sprite_color + NPC_SPRITE_NO + 1
     rts
 }
 
@@ -277,7 +299,6 @@ level_clear_irq: {
 .segment Default
 
 setup_screen:
-    lda $dd00
     and #%11111100
     ora #%00000001 // // VIC bank in $8000-$bfff
     sta $dd00
@@ -398,9 +419,21 @@ height_to_world:
 
 next_npc:
     .byte 0
+next_npc_sprite:
+    .byte 0
+npc_trigger_x_coord:
+    .word 50,150
 
-npc_start_hi:
-    .fill 64, i*9+6
+npc_trigger:
+    .fill NUMBER_OF_NPCS, i*3+9 // 41*6+9 = 255
+npc_move_func_lo:
+    .fill NUMBER_OF_NPCS, <move_npc
+npc_move_func_hi:
+    .fill NUMBER_OF_NPCS, >move_npc
+npc_movement_x:
+    .fill 256,pixels_to_world(1)
+npc_movement_y:
+    .fill 256,-4
 
 .align $100
 sprite_data:
@@ -421,8 +454,8 @@ sprite_y_coord: {
     player: .word 0
     shadow: .word 0
     gun:    .word 0
-    npc:    .word 0
-            .fillword 4,0
+    npc:    .fillword 2,0
+            .fillword 3,0
 }
 
 // IN SCREEN CORDINATES
@@ -430,8 +463,8 @@ sprite_x_coord: {
     player: .word 0
     shadow: .word 0
     gun:    .word 0
-    npc:    .word 0
-            .fillword 4,0
+    npc:    .fillword 2,0
+            .fillword 3,0
 }
 
 player_x:
