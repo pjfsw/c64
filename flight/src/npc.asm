@@ -10,11 +10,11 @@ update_npc_hit:
     // Compare heights first
     ldy npc_h_index
     lda npc_h,y
-    adc #5 // Add some slack in height comparison
+    adc #7 // Add some slack in height comparison
     cmp player_h
     bcc !+
     sec
-    sbc #7
+    sbc #9
     cmp player_h
     bcs !+
 
@@ -24,7 +24,14 @@ update_npc_hit:
     txa
     asl
     tax
-    cmp16x_mem(sprite_x_coord.npc, sprite_x_coord.npc+1, npc_player_fire_x)
+    clc
+    lda npc_player_fire_x
+    adc #24
+    sta npc_temp
+    lda npc_player_fire_x+1
+    adc #0
+    sta npc_temp+1
+    cmp16x_mem(sprite_x_coord.npc, sprite_x_coord.npc+1, npc_temp)
     bcs !+
 
     clc
