@@ -534,6 +534,10 @@ shadow_sprite:
     .fill 128,0
 npc_shadow_sprite:
     .fill 128,0
+explosion_sprite:
+    .fill 64*6,0
+empty_sprite:
+    .fill 64,0
 
 .segment ZP
 .zp {
