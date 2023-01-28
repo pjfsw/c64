@@ -98,3 +98,26 @@
     cmp #<immediate   // LSB of 2nd number
 !:
 }
+
+.macro cmp16x_mem(low_byte,high_byte,memory) {
+//16-bit number comparison...
+    lda high_byte,x    // MSB of 1st number
+    cmp memory+1   // MSB of 2nd number
+    bcc !+            // value < immediate
+    bne !+            // value > immediate
+
+    lda low_byte,x      // LSB of 1st number
+    cmp memory   // LSB of 2nd number
+!:
+}
+
+.macro cmp16mem(src, dest) {
+    lda src+1     // MSB of 1st number
+    cmp dest+1    // MSB of 2nd number
+    bcc !+            // value < immediate
+    bne !+            // value > immediate
+
+    lda src      // LSB of 1st number
+    cmp dest     // LSB of 2nd number
+!:
+}

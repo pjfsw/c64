@@ -1,15 +1,46 @@
 npc: {
 .segment Default
 
+update_npc_hit:
+{
+    lda npc_player_fire_x+1
+    cmp #$ff
+    beq !+
+
+    ldx npc_index
+
+    // 16-bit indexed from here
+    txa
+    asl
+    tax
+    cmp16x_mem(sprite_x_coord.npc, sprite_x_coord.npc+1, npc_player_fire_x)
+    bcs !+
+
+    clc
+    lda sprite_x_coord.npc,x
+    adc #24
+    sta npc_right_x
+    lda sprite_x_coord.npc + 1,x
+    adc #0
+    sta npc_right_x+1
+
+    cmp16mem(npc_right_x, npc_player_fire_x)
+    bcc !+
+
+    ldx npc_index
+    inc npc_hits,x
+!:
+    rts
+}
 update_npc:
 {
     // Animation stuff
     lda #npc_sprite/64
     sta level_renderer.sprite_ptr + NPC_SPRITE_NO
     sta level_renderer.sprite_ptr + NPC_SPRITE_NO + 1
-    lda #0
+    lda npc_hits
     sta level_renderer.sprite_color + NPC_SPRITE_NO
-    lda #2
+    lda npc_hits+1
     sta level_renderer.sprite_color + NPC_SPRITE_NO + 1
     ldx npc_index
     lda npc_sequence_pos_scale,x
@@ -55,6 +86,9 @@ next_npc_sprite:
     .byte 0
 npc_trigger_x_coord:
     .word 0,0
+npc_hits:
+    .fill 2,0
+
 
 npc_trigger:
     .fill NUMBER_OF_NPCS, [i*10+4, i*10+9] // 41*6+9 = 255
@@ -81,7 +115,10 @@ npc_sequence_pos_scale:
 npc_sequence_pos:
     .byte 0
     .byte 0
-
+npc_player_fire_x:
+    .word 0
+npc_right_x:
+    .word 0
 }
 
 .function getMoveX(i) {

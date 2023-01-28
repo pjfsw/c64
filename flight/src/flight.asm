@@ -85,13 +85,18 @@ main:
     bcs !+
     jsr cycle_npc
 !:
+    jsr update_fire
+
     lda #0
     sta npc.npc_index
     jsr npc_move_call:do_nothing
+    jsr npc.update_npc_hit
+
     lda #1
     sta npc.npc_index
     jsr npc_move_call2:do_nothing
-    jsr update_fire
+    jsr npc.update_npc_hit
+
     jsr draw_sprites
     debugoff(BORDER_COLOR)
     jmp main
@@ -197,6 +202,9 @@ update_fire:
     lda #0
     sta sprite_x_coord.gun
     sta sprite_x_coord.gun+1
+    lda #$ff
+    sta npc.npc_player_fire_x
+    sta npc.npc_player_fire_x + 1
     add16(sprite_y_coord.player, pixels_to_world(5), sprite_y_coord.gun)
 
     lda level_renderer.joyfire
@@ -204,8 +212,10 @@ update_fire:
 
     lda sprite_x_coord.player
     sta sprite_x_coord.gun
+    sta npc.npc_player_fire_x
     lda sprite_x_coord.player + 1
     sta sprite_x_coord.gun + 1
+    sta npc.npc_player_fire_x + 1
 !:
     // TODO multiplex fire sprite between player and enemy fire
     lda level_renderer.frame
