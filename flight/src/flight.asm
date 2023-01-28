@@ -202,6 +202,7 @@ cycle_npc: {
 
 update_fire:
 {
+    // TODO Separate gun animation from position where shot was fired.
     lda #0
     sta sprite_x_coord.gun
     sta sprite_x_coord.gun+1
@@ -212,13 +213,20 @@ update_fire:
 
     lda level_renderer.joyfire
     beq !+
-
+    lda gun_repeat_time
+    bne !+
+    lda #6
+    sta gun_repeat_time
     lda sprite_x_coord.player
     sta sprite_x_coord.gun
     sta npc.npc_player_fire_x
     lda sprite_x_coord.player + 1
     sta sprite_x_coord.gun + 1
     sta npc.npc_player_fire_x + 1
+!:
+    lda gun_repeat_time
+    beq !+
+    dec gun_repeat_time
 !:
     // TODO multiplex fire sprite between player and enemy fire
     lda level_renderer.frame
@@ -323,6 +331,14 @@ level_clear_irq: {
 
 .segment Default
 
+.macro make_shadow(i) {
+    .if (mod((i&63),6) >= 3) {
+        and #%10101010
+    } else {
+        and #%01010101
+    }
+}
+
 setup_screen:
     and #%11111100
     ora #%00000001 // // VIC bank in $8000-$bfff
@@ -333,12 +349,13 @@ setup_screen:
 
     .for (var i = 0; i < 127; i++) {
         lda player_sprite + i
-        .if (mod((i&63),6) >= 3) {
-            and #%10101010
-        } else {
-            and #%01010101
-        }
-        sta player_sprite + SHADOW_SPRITE_OFFSET * 64 + i
+        make_shadow(i)
+        sta shadow_sprite + i
+    }
+    .for (var i = 0; i < 127; i++) {
+        lda npc_sprite + i
+        make_shadow(i)
+        sta npc_shadow_sprite + i
     }
 
     lda #172
@@ -443,6 +460,8 @@ world_coord_high_bits:
     .fill 8,i*32
 height_to_world:
     .fill 32,i*8
+gun_repeat_time:
+    .byte 0
 
 
 .align $100
@@ -510,9 +529,11 @@ player_sprite:
 gun_sprite:
     .fill 64,0
 npc_sprite:
-    .fill 64,0
+    .fill 128,0
 shadow_sprite:
-    .fill 64,0
+    .fill 128,0
+npc_shadow_sprite:
+    .fill 128,0
 
 .segment ZP
 .zp {

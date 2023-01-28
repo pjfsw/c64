@@ -47,6 +47,8 @@ update_npc_hit:
 
     ldx npc_index
     inc npc_hits,x
+    lda #4
+    sta npc_hit_display_timer,x
 !:
     rts
 }
@@ -56,16 +58,29 @@ update_npc:
     ldx npc_index
 
     // Animation stuff
-    lda #npc_sprite/64
+    lda level_renderer.frame
+    and #2
+    lsr
+    tay
+    clc
+    adc #npc_sprite/64
     sta level_renderer.sprite_ptr + NPC_SPRITE_NO
     sta level_renderer.sprite_ptr + NPC_SPRITE_NO+1
-    lda npc_hits,x
+    lda #0
     sta level_renderer.sprite_color + NPC_SPRITE_NO,x
-
+    lda npc_hit_display_timer,x
+    beq !+
+    lda #2
+    sta level_renderer.sprite_color + NPC_SPRITE_NO,x
+    dec npc_hit_display_timer,x
+!:
     // Setup proper sprite  pointers and colors
     lda #0
     sta level_renderer.sprite_color + NPC_SHADOW_SPRITE_NO,x
-    lda #npc_sprite/64
+
+    tya
+    clc
+    adc #npc_shadow_sprite/64
     sta level_renderer.sprite_ptr + NPC_SHADOW_SPRITE_NO
     sta level_renderer.sprite_ptr + NPC_SHADOW_SPRITE_NO+1
 
@@ -138,6 +153,8 @@ next_npc_sprite:
 npc_trigger_x_coord:
     .word 0,0
 npc_hits:
+    .fill 2,0
+npc_hit_display_timer:
     .fill 2,0
 
 npc_trigger:
