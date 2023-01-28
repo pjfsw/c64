@@ -127,23 +127,24 @@ draw_sprites:
 }
 
 cycle_npc: {
-    add16(level_renderer.bottom, 1200, temp_coord)
+    lda level_renderer.bottom+1
+    clc
+    adc #6
     ldx next_npc
     stx $d021
-    cmp16x(npc_start_lo, npc_start_hi, temp_coord)
-    bcc !+
+    cmp npc_start_hi,x
+    bcs !+
     rts
 !:  // Next NPC in frame, setup game logic things for that NPC here
-    //lda temp_coord
-    lda npc_start_lo,x
+    lda #0
     sta sprite_y_coord.npc
-    //lda temp_coord+1
     lda npc_start_hi,x
     sta sprite_y_coord.npc+1
-    lda #255
+    lda #50
     sta sprite_x_coord.npc
     lda #0
     sta sprite_x_coord.npc+1
+
     inx
     stx next_npc
     rts
@@ -153,7 +154,7 @@ update_npc:
 {
     lda #npc_sprite/64
     sta level_renderer.sprite_ptr + NPC_SPRITE_NO
-    lda next_npc
+    lda #0
     sta level_renderer.sprite_color + NPC_SPRITE_NO
     rts
 }
@@ -398,10 +399,8 @@ height_to_world:
 next_npc:
     .byte 0
 
-npc_start_lo:
-    .fill 64, <(tiles_to_world(i*6+8))
 npc_start_hi:
-    .fill 64, >(tiles_to_world(i*6+8))
+    .fill 64, i*9+6
 
 .align $100
 sprite_data:
