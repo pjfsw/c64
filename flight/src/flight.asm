@@ -36,13 +36,14 @@
     .const SHADOW_SPRITE_NO = 1
     .const FIRE_SPRITE_NO = 2
     .const NPC_SPRITE_NO = 3
+    .const NPC_SHADOW_SPRITE_NO = 5
     .var SHADOW_SPRITE_OFFSET = (shadow_sprite-player_sprite)/64
     .const HUD_SPRITE_POS = 50
     .const HUD_IRQ_ROW = 62
     .const SPRITE_IRQ_ROW = 70
     .const IRQ_ROW = $d8
     .const NUMBER_OF_NPCS = 50
-    .const NPC_TRIGGER_OFFSET = 3
+    .const NPC_TRIGGER_OFFSET = 2
 
 
 .macro set_top_row_colors(color) {
@@ -97,6 +98,8 @@ main:
     jsr npc_move_call2:do_nothing
     jsr npc.update_npc_hit
 
+    inc npc.npc_h_index
+
     jsr draw_sprites
     debugoff(BORDER_COLOR)
     jmp main
@@ -108,7 +111,7 @@ draw_sprites:
 {
     // World coordinates are pointing upwards, so first we add a screen length to the bottom coordinate
     add16(level_renderer.bottom, chars_to_world(24), world_top)
-    .for (var i = 0; i < 5; i++) {
+    .for (var i = 0; i < 7; i++) {
         ldx #0
         ldy #0
 
@@ -157,9 +160,9 @@ cycle_npc: {
 !:  // Next NPC in frame, setup game logic things for that NPC here
     lda #0
     ldy npc.next_npc_sprite
-    sta sprite_y_coord.npc,y
+    sta sprite_y_coord.npc_shadow,y
     lda npc.npc_trigger,x
-    sta sprite_y_coord.npc+1,y
+    sta sprite_y_coord.npc_shadow+1,y
     lda npc.npc_trigger_x_coord,y
     sta sprite_x_coord.npc,y
     lda npc.npc_trigger_x_coord+1,y
@@ -462,7 +465,8 @@ sprite_y_coord: {
     shadow: .word 0
     gun:    .word 0
     npc:    .fillword 2,0
-            .fillword 3,0
+    npc_shadow: .fillword 2,0
+    .word 1,0
 }
 
 // IN SCREEN CORDINATES
@@ -471,7 +475,8 @@ sprite_x_coord: {
     shadow: .word 0
     gun:    .word 0
     npc:    .fillword 2,0
-            .fillword 3,0
+    npc_shadow: .fillword 2,0
+            .word 1,0
 }
 
 player_x:
