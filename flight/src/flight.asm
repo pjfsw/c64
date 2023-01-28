@@ -76,20 +76,20 @@ main:
     sec
     sbc last_frame
     sta frames
-    lda next_npc
+    lda npc.next_npc
     sta $d020
     //debug3()
     jsr move_player
-    lda next_npc
+    lda npc.next_npc
     cmp NUMBER_OF_NPCS
     bcs !+
     jsr cycle_npc
 !:
     lda #0
-    sta npc_index
+    sta npc.npc_index
     jsr npc_move_call:do_nothing
     lda #1
-    sta npc_index
+    sta npc.npc_index
     jsr npc_move_call2:do_nothing
     jsr update_fire
     jsr draw_sprites
@@ -144,98 +144,50 @@ cycle_npc: {
     lda level_renderer.bottom+1
     clc
     adc #NPC_TRIGGER_OFFSET
-    ldx next_npc
+    ldx npc.next_npc
     //stx $d021
-    cmp npc_trigger,x
+    cmp npc.npc_trigger,x
     bcs !+
     rts
 !:  // Next NPC in frame, setup game logic things for that NPC here
     lda #0
-    ldy next_npc_sprite
+    ldy npc.next_npc_sprite
     sta sprite_y_coord.npc,y
-    lda npc_trigger,x
+    lda npc.npc_trigger,x
     sta sprite_y_coord.npc+1,y
-    lda npc_trigger_x_coord,y
+    lda npc.npc_trigger_x_coord,y
     sta sprite_x_coord.npc,y
-    lda npc_trigger_x_coord+1,y
+    lda npc.npc_trigger_x_coord+1,y
     sta sprite_x_coord.npc+1,y
 
     cpy #0
     bne !+
     {
-        lda npc_move_func_lo,x
+        lda npc.npc_move_func_lo,x
         sta npc_move_call
-        lda npc_move_func_hi,x
+        lda npc.npc_move_func_hi,x
         sta npc_move_call + 1
         lda #0
-        sta npc_sequence_pos
-        sta npc_sequence_pos_scale
+        sta npc.npc_sequence_pos
+        sta npc.npc_sequence_pos_scale
     }
     jmp !done+
 !:
-    lda npc_move_func_lo,x
+    lda npc.npc_move_func_lo,x
     sta npc_move_call2
-    lda npc_move_func_hi,x
+    lda npc.npc_move_func_hi,x
     sta npc_move_call2 + 1
     lda #0
-    sta npc_sequence_pos+1
-    sta npc_sequence_pos_scale+1
+    sta npc.npc_sequence_pos+1
+    sta npc.npc_sequence_pos_scale+1
 
 !done:
     inx
-    stx next_npc
+    stx npc.next_npc
 
     tya
     eor #%00000010  // Toggle two words back and forth
-    sta next_npc_sprite
-
-    rts
-}
-
-update_npc:
-{
-    // Animation stuff
-    lda #npc_sprite/64
-    sta level_renderer.sprite_ptr + NPC_SPRITE_NO
-    sta level_renderer.sprite_ptr + NPC_SPRITE_NO + 1
-    lda #0
-    sta level_renderer.sprite_color + NPC_SPRITE_NO
-    lda #2
-    sta level_renderer.sprite_color + NPC_SPRITE_NO + 1
-    ldx npc_index
-    lda npc_sequence_pos_scale,x
-    clc
-    adc #1
-    and #7  // Takes too much memory to change position every frame
-    bne !+
-    inc npc_sequence_pos,x
-    lda #0
-!:
-    sta npc_sequence_pos_scale,x
-    lda npc_sequence_pos,x
-    tay
-    // Do 8-bit indexed operations here
-    // ..
-    // 16-bit indexed from here
-    txa
-    asl
-    tax
-
-    clc
-    lda npc_movement_x_lo,y
-    adc sprite_x_coord.npc,x
-    sta sprite_x_coord.npc,x
-    lda npc_movement_x_hi,y
-    adc sprite_x_coord.npc+1,x
-    sta sprite_x_coord.npc+1,x
-
-    clc
-    lda npc_movement_y_lo,y
-    adc sprite_y_coord.npc,x
-    sta sprite_y_coord.npc,x
-    lda npc_movement_y_hi,y
-    adc sprite_y_coord.npc+1,x
-    sta sprite_y_coord.npc+1,x
+    sta npc.next_npc_sprite
 
     rts
 }
@@ -354,6 +306,7 @@ level_clear_irq: {
 }
 
 #import "level_renderer.asm"
+#import "npc.asm"
 
 .segment Default
 
@@ -379,6 +332,8 @@ setup_screen:
     sta player_x
     lda #0
     sta player_x+1
+    lda #PLAYER_BOTTOM_BOUND
+    sta player_h
 
     lda #FG_COLOR
     sta $d021
@@ -476,36 +431,6 @@ world_coord_high_bits:
 height_to_world:
     .fill 32,i*8
 
-next_npc:
-    .byte 0
-next_npc_sprite:
-    .byte 0
-npc_trigger_x_coord:
-    .word 0,0
-
-npc_trigger:
-    .fill NUMBER_OF_NPCS, [i*10+4, i*10+9] // 41*6+9 = 255
-npc_move_func_lo:
-    .fill NUMBER_OF_NPCS, <update_npc
-npc_move_func_hi:
-    .fill NUMBER_OF_NPCS, >update_npc
-
-.function getMoveX(i) {
-    .return abs(i-32)/28+1
-}
-
-.function getMoveY(i) {
-    .return 16-i/2
-}
-
-npc_movement_x_lo:
-    .fill 64,<getMoveX(i)
-npc_movement_x_hi:
-    .fill 64,>getMoveX(i)
-npc_movement_y_lo:
-    .fill 64,<getMoveY(i)
-npc_movement_y_hi:
-    .fill 64,>getMoveY(i)
 
 .align $100
 sprite_data:
@@ -555,14 +480,6 @@ temp_y:
 last_frame:
     .byte 0
 frames:
-    .byte 0
-npc_index:
-    .byte 0
-npc_sequence_pos_scale:
-    .byte 0
-    .byte 0
-npc_sequence_pos:
-    .byte 0
     .byte 0
 
 *=$8800 "Screen1" virtual
