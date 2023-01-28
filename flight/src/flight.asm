@@ -145,7 +145,7 @@ cycle_npc: {
     clc
     adc #NPC_TRIGGER_OFFSET
     ldx next_npc
-    stx $d021
+    //stx $d021
     cmp npc_trigger,x
     bcs !+
     rts
@@ -206,7 +206,7 @@ update_npc:
     lda npc_sequence_pos_scale,x
     clc
     adc #1
-    and #3  // Takes too much memory to change position every frame
+    and #7  // Takes too much memory to change position every frame
     bne !+
     inc npc_sequence_pos,x
     lda #0
@@ -484,18 +484,18 @@ npc_trigger_x_coord:
     .word 0,0
 
 npc_trigger:
-    .fill NUMBER_OF_NPCS, [i*8+4, i*8+8] // 41*6+9 = 255
+    .fill NUMBER_OF_NPCS, [i*10+4, i*10+9] // 41*6+9 = 255
 npc_move_func_lo:
     .fill NUMBER_OF_NPCS, <update_npc
 npc_move_func_hi:
     .fill NUMBER_OF_NPCS, >update_npc
 
 .function getMoveX(i) {
-    .return abs(i-32)/20+1
+    .return abs(i-32)/28+1
 }
 
 .function getMoveY(i) {
-    .return 16-i/4
+    .return 16-i/2
 }
 
 npc_movement_x_lo:
