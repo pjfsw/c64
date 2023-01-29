@@ -84,7 +84,7 @@ main:
     //debug3()
     jsr move_player
     lda npc.next_npc
-    cmp NUMBER_OF_NPCS
+    cmp #NUMBER_OF_NPCS
     bcs !+
 
     jsr npc.cycle_npc

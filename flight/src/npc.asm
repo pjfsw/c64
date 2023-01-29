@@ -6,40 +6,40 @@ cycle_npc: {
 
     clc
     adc #NPC_TRIGGER_OFFSET
-    ldx npc.next_npc
-    cmp npc.npc_trigger,x
+    ldx next_npc
+    cmp npc_trigger,x
     bcs !+
     rts
 
 !:  // Next NPC in frame, setup game logic things for that NPC here
-    ldy npc.next_npc_sprite
+    ldy next_npc_sprite
 
     lda #0
     sta object.y.lo.npc_shadow1,y
-    lda npc.npc_trigger,x
+    lda npc_trigger,x
     sta object.y.hi.npc_shadow1,y
 
-    lda npc.npc_trigger_x_coord_lo,y
+    lda npc_trigger_x_coord_lo,y
     sta object.x.lo.npc,y
-    lda npc.npc_trigger_x_coord_hi,y
+    lda npc_trigger_x_coord_hi,y
     sta object.x.hi.npc,y
 
     cpy #0
     bne !+
     {
-        lda npc.npc_move_func_lo,x
+        lda npc_move_func_lo,x
         sta npc_move_call
-        lda npc.npc_move_func_hi,x
+        lda npc_move_func_hi,x
         sta npc_move_call + 1
         lda #0
-        sta npc.npc_sequence_pos
-        sta npc.npc_sequence_pos_scale
+        sta npc_sequence_pos
+        sta npc_sequence_pos_scale
     }
     jmp !done+
 !:
-    lda npc.npc_move_func_lo,x
+    lda npc_move_func_lo,x
     sta npc_move_call2
-    lda npc.npc_move_func_hi,x
+    lda npc_move_func_hi,x
     sta npc_move_call2 + 1
     lda #0
     sta npc.npc_sequence_pos+1
@@ -47,16 +47,16 @@ cycle_npc: {
 
 !done:
     inx
-    stx npc.next_npc
+    stx next_npc
 
     lda #1
-    sta npc.npc_is_alive,y
+    sta npc_is_alive,y
     lda #NPC_HELICOPTER_HITS
-    sta npc.npc_hitpoints,y
+    sta npc_hitpoints,y
 
     tya
     eor #1  // Toggle two words back and forth
-    sta npc.next_npc_sprite
+    sta next_npc_sprite
 
     rts
 }
@@ -97,14 +97,13 @@ update_npc_hit:
     lda object.x.lo.npc,x
     adc #24
     sta npc_temp
-    lda object.x.hi.npc+1,x
+    lda object.x.hi.npc,x
     adc #0
     sta npc_temp+1
 
     cmp16mem(npc_temp, npc_player_fire_x)
     bcc !+
     {
-        ldx npc_index
         dec npc_hitpoints,x
         bne !+
         lda #0
