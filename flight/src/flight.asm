@@ -109,6 +109,18 @@ do_nothing:
 
 draw_sprites:
 {
+    lda #1
+    sta level_renderer.sprite_enabled + PLAYER_SPRITE_NO
+    sta level_renderer.sprite_enabled + FIRE_SPRITE_NO
+    sta level_renderer.sprite_enabled + SHADOW_SPRITE_NO
+    lda npc.npc_enabled
+    sta level_renderer.sprite_enabled + NPC_SPRITE_NO
+    sta level_renderer.sprite_enabled + NPC_SHADOW_SPRITE_NO
+    lda npc.npc_enabled+1
+    sta level_renderer.sprite_enabled + NPC_SPRITE_NO + 1
+    sta level_renderer.sprite_enabled + NPC_SHADOW_SPRITE_NO + 1
+
+
     // World coordinates are pointing upwards, so first we add a screen length to the bottom coordinate
     add16(level_renderer.bottom, chars_to_world(24), world_top)
     .for (var i = 0; i < 7; i++) {

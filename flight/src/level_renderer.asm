@@ -56,9 +56,13 @@
             sta (level_renderer.screen_sprite_ptr),y
             iny
         }
-
-        lda #$7f
+        lda #0
+        .for (var i = 0; i < 8; i++) {
+            asl
+            ora sprite_enabled+(7-i)
+        }
         sta $d015 // sprite enable
+
         lda #0
         sta $d01d // normal width
 
@@ -342,6 +346,8 @@
         .fill 8,0
     sprite_color:
         .byte 1,0,7,0,0,0,0,0
+    sprite_enabled:
+        .byte 0,0,0,0,0,0,0,0
 
     .segment DATA
     frame:

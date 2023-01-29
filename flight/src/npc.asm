@@ -7,6 +7,10 @@ update_npc_hit:
     cmp #$ff
     beq !+
 
+    ldx npc_index
+    lda npc_is_dead,x
+    bne !+
+
     // Compare heights first
     ldy npc_h_index
     lda npc_h,y
@@ -18,7 +22,6 @@ update_npc_hit:
     cmp player_h
     bcs !+
 
-    ldx npc_index
 
     // 16-bit indexed from here
     txa
@@ -55,6 +58,10 @@ update_npc_hit:
 
 update_npc:
 {
+    lda #1
+    sta npc_enabled
+    sta npc_enabled + 1
+
     ldx npc_index
 
     // Animation stuff
@@ -154,6 +161,8 @@ npc_trigger_x_coord:
     .word 0,0
 npc_hits:
     .fill 2,0
+npc_is_dead:
+    .fill 2,0
 npc_hit_display_timer:
     .fill 2,0
 
@@ -190,6 +199,8 @@ npc_temp:
     .word 0
 npc_h_index:
     .byte 0
+npc_enabled:
+    .byte 0,0
 }
 
 .function getMoveX(i) {
