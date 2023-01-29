@@ -22,11 +22,6 @@ update_npc_hit:
     cmp player_h
     bcs !+
 
-
-    // 16-bit indexed from here
-    txa
-    asl
-    tax
     clc
     lda npc_player_fire_x
     adc #24
@@ -34,14 +29,14 @@ update_npc_hit:
     lda npc_player_fire_x+1
     adc #0
     sta npc_temp+1
-    cmp16x_mem(sprite_x_coord.npc, sprite_x_coord.npc+1, npc_temp)
+    cmp16x_mem(sprite_x_coord.lo.npc, sprite_x_coord.hi.npc, npc_temp)
     bcs !+
 
     clc
-    lda sprite_x_coord.npc,x
+    lda sprite_x_coord.lo.npc,x
     adc #24
     sta npc_temp
-    lda sprite_x_coord.npc + 1,x
+    lda sprite_x_coord.hi.npc+1,x
     adc #0
     sta npc_temp+1
 
@@ -106,30 +101,24 @@ update_npc:
     sta npc_sequence_pos_scale,x
     lda npc_sequence_pos,x
     tay
-    // Do 8-bit indexed operations here
-    // ..
-    // 16-bit indexed from here
-    txa
-    asl
-    tax
 
     // Update and store x-position of NPC which is unaffected by height
     clc
     lda npc_movement_x_lo,y
-    adc sprite_x_coord.npc,x
-    sta sprite_x_coord.npc,x
+    adc sprite_x_coord.lo.npc,x
+    sta sprite_x_coord.lo.npc,x
     lda npc_movement_x_hi,y
-    adc sprite_x_coord.npc+1,x
-    sta sprite_x_coord.npc+1,x
+    adc sprite_x_coord.hi.npc,x
+    sta sprite_x_coord.hi.npc,x
 
     // Update and store NPC shadow y-position as it's not affected by height
     clc
     lda npc_movement_y_lo,y
-    adc sprite_y_coord.npc_shadow,x
-    sta sprite_y_coord.npc_shadow,x
+    adc sprite_y_coord.lo.npc_shadow1,x
+    sta sprite_y_coord.lo.npc_shadow1,x
     lda npc_movement_y_hi,y
-    adc sprite_y_coord.npc_shadow+1,x
-    sta sprite_y_coord.npc_shadow+1,x
+    adc sprite_y_coord.hi.npc_shadow1,x
+    sta sprite_y_coord.hi.npc_shadow1,x
 
     // Update y position of NPC based on shadow y position and height
     ldy npc_h_index
@@ -138,21 +127,21 @@ update_npc:
 
     clc
     lda height_to_world,y
-    adc sprite_y_coord.npc_shadow,x
-    sta sprite_y_coord.npc,x
+    adc sprite_y_coord.lo.npc_shadow1,x
+    sta sprite_y_coord.lo.npc,x
     lda #0
-    adc sprite_y_coord.npc_shadow+1,x
-    sta sprite_y_coord.npc+1,x
+    adc sprite_y_coord.hi.npc_shadow1,x
+    sta sprite_y_coord.hi.npc,x
 
     // Finally fix shadow X-position
     clc
-    lda sprite_x_coord.npc,x
+    lda sprite_x_coord.lo.npc,x
     ldy npc_h_index
     adc npc_h,y
-    sta sprite_x_coord.npc_shadow,x
-    lda sprite_x_coord.npc+1,x
+    sta sprite_x_coord.lo.npc_shadow1,x
+    lda sprite_x_coord.hi.npc,x
     adc #0
-    sta sprite_x_coord.npc_shadow+1,x
+    sta sprite_x_coord.hi.npc_shadow1,x
 
     rts
 }
@@ -161,14 +150,18 @@ next_npc:
     .byte 0
 next_npc_sprite:
     .byte 0
-npc_trigger_x_coord:
-    .word 0,0
+
+
+npc_trigger_x_coord_lo:
+    .fill NPCS_ON_SCREEN,0
+npc_trigger_x_coord_hi:
+    .fill NPCS_ON_SCREEN,0
 npc_hitpoints:
-    .fill 2,0
+    .fill NPCS_ON_SCREEN,0
 npc_is_alive:
-    .fill 2,0
+    .fill NPCS_ON_SCREEN,0
 npc_hit_display_timer:
-    .fill 2,0
+    .fill NPCS_ON_SCREEN,0
 
 npc_trigger:
     .fill NUMBER_OF_NPCS, [i*10+4, i*10+9] // 41*6+9 = 255

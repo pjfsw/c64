@@ -45,6 +45,7 @@
     .const NUMBER_OF_NPCS = 50
     .const NPC_TRIGGER_OFFSET = 2
     .const NPC_HELICOPTER_HITS = 5
+    .const NPCS_ON_SCREEN = 2
 
 
 .macro set_top_row_colors(color) {
@@ -114,12 +115,12 @@ draw_sprites:
     sta level_renderer.sprite_enabled + PLAYER_SPRITE_NO
     sta level_renderer.sprite_enabled + FIRE_SPRITE_NO
     sta level_renderer.sprite_enabled + SHADOW_SPRITE_NO
-    lda npc.npc_enabled
-    sta level_renderer.sprite_enabled + NPC_SPRITE_NO
-    sta level_renderer.sprite_enabled + NPC_SHADOW_SPRITE_NO
-    lda npc.npc_enabled+1
-    sta level_renderer.sprite_enabled + NPC_SPRITE_NO + 1
-    sta level_renderer.sprite_enabled + NPC_SHADOW_SPRITE_NO + 1
+
+    .for (var i = 0; i < NPCS_ON_SCREEN; i++) {
+        lda npc.npc_enabled + i
+        sta level_renderer.sprite_enabled + NPC_SPRITE_NO + i
+        sta level_renderer.sprite_enabled + NPC_SHADOW_SPRITE_NO + i
+    }
 
 
     // World coordinates are pointing upwards, so first we add a screen length to the bottom coordinate
@@ -129,8 +130,14 @@ draw_sprites:
         ldy #0
 
         // For each sprite we calc the difference between the top coord and the sprite coord
-        sub16mem(world_top, sprite_y_coord + i * 2, temp_coord)
-        lda temp_coord+1
+        sec
+        lda world_top
+        sbc sprite_y_coord.lo + i
+        sta temp_coord
+        lda world_top + 1
+        sbc sprite_y_coord.hi + i
+        sta temp_coord + 1
+
         cmp #7
         bcs !+ // Out of bounds
 
@@ -153,8 +160,8 @@ draw_sprites:
         sta level_renderer.sprite_y + i
 
         // X-axis is just screen coords, plain copy
-        ldx sprite_x_coord + i * 2
-        ldy sprite_x_coord + i * 2 + 1
+        ldx sprite_x_coord.lo + i
+        ldy sprite_x_coord.hi + i
     !:
         stx level_renderer.sprite_x + i
         sty level_renderer.sprite_x_hi + i
@@ -171,15 +178,17 @@ cycle_npc: {
     rts
 
 !:  // Next NPC in frame, setup game logic things for that NPC here
-    lda #0
     ldy npc.next_npc_sprite
-    sta sprite_y_coord.npc_shadow,y
+
+    lda #0
+    sta sprite_y_coord.lo.npc_shadow1,y
     lda npc.npc_trigger,x
-    sta sprite_y_coord.npc_shadow+1,y
-    lda npc.npc_trigger_x_coord,y
-    sta sprite_x_coord.npc,y
-    lda npc.npc_trigger_x_coord+1,y
-    sta sprite_x_coord.npc+1,y
+    sta sprite_y_coord.hi.npc_shadow1,y
+
+    lda npc.npc_trigger_x_coord_lo,y
+    sta sprite_x_coord.lo.npc,y
+    lda npc.npc_trigger_x_coord_hi,y
+    sta sprite_x_coord.hi.npc,y
 
     cpy #0
     bne !+
@@ -206,16 +215,13 @@ cycle_npc: {
     inx
     stx npc.next_npc
 
-    tya
-    lsr
-    tax
     lda #1
-    sta npc.npc_is_alive,x
+    sta npc.npc_is_alive,y
     lda #NPC_HELICOPTER_HITS
-    sta npc.npc_hitpoints,x
+    sta npc.npc_hitpoints,y
 
     tya
-    eor #%00000010  // Toggle two words back and forth
+    eor #1  // Toggle two words back and forth
     sta npc.next_npc_sprite
 
     rts
@@ -225,12 +231,19 @@ update_fire:
 {
     // TODO Separate gun animation from position where shot was fired.
     lda #0
-    sta sprite_x_coord.gun
-    sta sprite_x_coord.gun+1
+    sta sprite_x_coord.lo.gun
+    sta sprite_x_coord.hi.gun
     lda #$ff
     sta npc.npc_player_fire_x
     sta npc.npc_player_fire_x + 1
-    add16(sprite_y_coord.player, pixels_to_world(5), sprite_y_coord.gun)
+
+    clc
+    lda sprite_y_coord.lo.player
+    adc #<pixels_to_world(5)
+    sta sprite_y_coord.lo.gun
+    lda sprite_y_coord.hi.player
+    adc #>pixels_to_world(5)
+    sta sprite_y_coord.hi.gun
 
     lda level_renderer.joyfire
     beq !+
@@ -238,11 +251,11 @@ update_fire:
     bne !+
     lda #6
     sta gun_repeat_time
-    lda sprite_x_coord.player
-    sta sprite_x_coord.gun
+    lda sprite_x_coord.lo.player
+    sta sprite_x_coord.lo.gun
     sta npc.npc_player_fire_x
-    lda sprite_x_coord.player + 1
-    sta sprite_x_coord.gun + 1
+    lda sprite_x_coord.hi.player
+    sta sprite_x_coord.hi.gun
     sta npc.npc_player_fire_x + 1
 !:
     lda gun_repeat_time
@@ -321,15 +334,46 @@ move_player:
     lda #PLAYER_TOP_BOUND
     sta player_h
 !:
-    copy16(player_x, sprite_x_coord.player)
-    add16(level_renderer.bottom, pixels_to_world(PLAYER_BOTTOM_POS), sprite_y_coord.player)
-    copy16(sprite_y_coord.player, sprite_y_coord.shadow)
+    lda player_x
+    sta sprite_x_coord.lo.player
+    lda player_x + 1
+    sta sprite_x_coord.hi.player
+
+    clc
+    lda level_renderer.bottom
+    adc #<pixels_to_world(PLAYER_BOTTOM_POS)
+    sta sprite_y_coord.lo.player
+    lda level_renderer.bottom + 1
+    adc #>pixels_to_world(PLAYER_BOTTOM_POS)
+    sta sprite_y_coord.hi.player
+
+
+    lda sprite_y_coord.lo.player
+    sta sprite_y_coord.lo.shadow
+    lda sprite_y_coord.hi.player
+    sta sprite_y_coord.hi.shadow
+
     ldx player_h
     lda height_to_world,x
     sta h_world_temp
-    add_16_8_mem(sprite_y_coord.player, h_world_temp, sprite_y_coord.player)
 
-    add_16_8_mem(player_x, player_h, sprite_x_coord.shadow)
+    // Adjust player y-coordinate according to vehicle height
+    clc
+    lda sprite_y_coord.lo.player
+    adc h_world_temp
+    sta sprite_y_coord.lo.player
+    bcc !+
+    inc sprite_y_coord.hi.player
+!:
+
+    // Adjust player shadow x-coordinate according to vehicle height
+    clc
+    lda player_x
+    adc player_h
+    sta sprite_x_coord.lo.shadow
+    lda player_x + 1
+    adc #0
+    sta sprite_x_coord.hi.shadow
 
     rts
 }
@@ -501,22 +545,50 @@ sprite_data_end:
 
 // IN WORLD COORDINATES
 sprite_y_coord: {
-    player: .word 0
-    shadow: .word 0
-    gun:    .word 0
-    npc:    .fillword 2,0
-    npc_shadow: .fillword 2,0
-    .word 1,0
+    lo: {
+        player: .byte 0
+        shadow: .byte 0
+        gun:    .byte 0
+        npc:    .byte 0
+        npc2:   .byte 0
+        npc_shadow1: .byte 0
+        npc_shadow2: .byte 0
+        unused: .byte 0
+    }
+    hi: {
+        player: .byte 0
+        shadow: .byte 0
+        gun:    .byte 0
+        npc:    .byte 0
+        npc2:   .byte 0
+        npc_shadow1: .byte 0
+        npc_shadow2: .byte 0
+        unused: .byte 0
+    }
 }
 
 // IN SCREEN CORDINATES
 sprite_x_coord: {
-    player: .word 0
-    shadow: .word 0
-    gun:    .word 0
-    npc:    .fillword 2,0
-    npc_shadow: .fillword 2,0
-            .word 1,0
+    lo: {
+        player: .byte 0
+        shadow: .byte 0
+        gun:    .byte 0
+        npc:    .byte 0
+        npc2:   .byte 0
+        npc_shadow1: .byte 0
+        npc_shadow2: .byte 0
+        unused: .byte 0
+    }
+    hi: {
+        player: .byte 0
+        shadow: .byte 0
+        gun:    .byte 0
+        npc:    .byte 0
+        npc2:   .byte 0
+        npc_shadow1: .byte 0
+        npc_shadow2: .byte 0
+        unused: .byte 0
+    }
 }
 
 player_x:

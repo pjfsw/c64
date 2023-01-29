@@ -131,7 +131,6 @@
 
         jsr flip_screen
 
-        //add8(bottom, CHAR_SUBPIXEL_SIZE, bottom)
         add16(bottom, FRAMES_TO_RENDER_TILES * ROWS_TO_RENDER_PER_FRAME * CHAR_SUBPIXEL_SIZE, bottom_render)
     !:
         jmp draw_tiles
