@@ -86,7 +86,8 @@ main:
     lda npc.next_npc
     cmp NUMBER_OF_NPCS
     bcs !+
-    jsr cycle_npc
+
+    jsr npc.cycle_npc
 !:
     jsr update_fire
 
@@ -132,10 +133,10 @@ draw_sprites:
         // For each sprite we calc the difference between the top coord and the sprite coord
         sec
         lda world_top
-        sbc sprite_y_coord.lo + i
+        sbc object.y.lo + i
         sta temp_coord
         lda world_top + 1
-        sbc sprite_y_coord.hi + i
+        sbc object.y.hi + i
         sta temp_coord + 1
 
         cmp #7
@@ -160,90 +161,31 @@ draw_sprites:
         sta level_renderer.sprite_y + i
 
         // X-axis is just screen coords, plain copy
-        ldx sprite_x_coord.lo + i
-        ldy sprite_x_coord.hi + i
+        ldx object.x.lo + i
+        ldy object.x.hi + i
     !:
         stx level_renderer.sprite_x + i
         sty level_renderer.sprite_x_hi + i
     }
 }
 
-cycle_npc: {
-    lda level_renderer.bottom+1
-    clc
-    adc #NPC_TRIGGER_OFFSET
-    ldx npc.next_npc
-    cmp npc.npc_trigger,x
-    bcs !+
-    rts
-
-!:  // Next NPC in frame, setup game logic things for that NPC here
-    ldy npc.next_npc_sprite
-
-    lda #0
-    sta sprite_y_coord.lo.npc_shadow1,y
-    lda npc.npc_trigger,x
-    sta sprite_y_coord.hi.npc_shadow1,y
-
-    lda npc.npc_trigger_x_coord_lo,y
-    sta sprite_x_coord.lo.npc,y
-    lda npc.npc_trigger_x_coord_hi,y
-    sta sprite_x_coord.hi.npc,y
-
-    cpy #0
-    bne !+
-    {
-        lda npc.npc_move_func_lo,x
-        sta npc_move_call
-        lda npc.npc_move_func_hi,x
-        sta npc_move_call + 1
-        lda #0
-        sta npc.npc_sequence_pos
-        sta npc.npc_sequence_pos_scale
-    }
-    jmp !done+
-!:
-    lda npc.npc_move_func_lo,x
-    sta npc_move_call2
-    lda npc.npc_move_func_hi,x
-    sta npc_move_call2 + 1
-    lda #0
-    sta npc.npc_sequence_pos+1
-    sta npc.npc_sequence_pos_scale+1
-
-!done:
-    inx
-    stx npc.next_npc
-
-    lda #1
-    sta npc.npc_is_alive,y
-    lda #NPC_HELICOPTER_HITS
-    sta npc.npc_hitpoints,y
-
-    tya
-    eor #1  // Toggle two words back and forth
-    sta npc.next_npc_sprite
-
-    rts
-}
-
 update_fire:
 {
     // TODO Separate gun animation from position where shot was fired.
     lda #0
-    sta sprite_x_coord.lo.gun
-    sta sprite_x_coord.hi.gun
+    sta object.x.lo.gun
+    sta object.x.hi.gun
     lda #$ff
     sta npc.npc_player_fire_x
     sta npc.npc_player_fire_x + 1
 
     clc
-    lda sprite_y_coord.lo.player
+    lda object.y.lo.player
     adc #<pixels_to_world(5)
-    sta sprite_y_coord.lo.gun
-    lda sprite_y_coord.hi.player
+    sta object.y.lo.gun
+    lda object.y.hi.player
     adc #>pixels_to_world(5)
-    sta sprite_y_coord.hi.gun
+    sta object.y.hi.gun
 
     lda level_renderer.joyfire
     beq !+
@@ -251,11 +193,11 @@ update_fire:
     bne !+
     lda #6
     sta gun_repeat_time
-    lda sprite_x_coord.lo.player
-    sta sprite_x_coord.lo.gun
+    lda object.x.lo.player
+    sta object.x.lo.gun
     sta npc.npc_player_fire_x
-    lda sprite_x_coord.hi.player
-    sta sprite_x_coord.hi.gun
+    lda object.x.hi.player
+    sta object.x.hi.gun
     sta npc.npc_player_fire_x + 1
 !:
     lda gun_repeat_time
@@ -335,23 +277,23 @@ move_player:
     sta player_h
 !:
     lda player_x
-    sta sprite_x_coord.lo.player
+    sta object.x.lo.player
     lda player_x + 1
-    sta sprite_x_coord.hi.player
+    sta object.x.hi.player
 
     clc
     lda level_renderer.bottom
     adc #<pixels_to_world(PLAYER_BOTTOM_POS)
-    sta sprite_y_coord.lo.player
+    sta object.y.lo.player
     lda level_renderer.bottom + 1
     adc #>pixels_to_world(PLAYER_BOTTOM_POS)
-    sta sprite_y_coord.hi.player
+    sta object.y.hi.player
 
 
-    lda sprite_y_coord.lo.player
-    sta sprite_y_coord.lo.shadow
-    lda sprite_y_coord.hi.player
-    sta sprite_y_coord.hi.shadow
+    lda object.y.lo.player
+    sta object.y.lo.shadow
+    lda object.y.hi.player
+    sta object.y.hi.shadow
 
     ldx player_h
     lda height_to_world,x
@@ -359,21 +301,21 @@ move_player:
 
     // Adjust player y-coordinate according to vehicle height
     clc
-    lda sprite_y_coord.lo.player
+    lda object.y.lo.player
     adc h_world_temp
-    sta sprite_y_coord.lo.player
+    sta object.y.lo.player
     bcc !+
-    inc sprite_y_coord.hi.player
+    inc object.y.hi.player
 !:
 
     // Adjust player shadow x-coordinate according to vehicle height
     clc
     lda player_x
     adc player_h
-    sta sprite_x_coord.lo.shadow
+    sta object.x.lo.shadow
     lda player_x + 1
     adc #0
-    sta sprite_x_coord.hi.shadow
+    sta object.x.hi.shadow
 
     rts
 }
@@ -543,53 +485,7 @@ sprite_data_end:
 
 .segment DATA
 
-// IN WORLD COORDINATES
-sprite_y_coord: {
-    lo: {
-        player: .byte 0
-        shadow: .byte 0
-        gun:    .byte 0
-        npc:    .byte 0
-        npc2:   .byte 0
-        npc_shadow1: .byte 0
-        npc_shadow2: .byte 0
-        unused: .byte 0
-    }
-    hi: {
-        player: .byte 0
-        shadow: .byte 0
-        gun:    .byte 0
-        npc:    .byte 0
-        npc2:   .byte 0
-        npc_shadow1: .byte 0
-        npc_shadow2: .byte 0
-        unused: .byte 0
-    }
-}
-
-// IN SCREEN CORDINATES
-sprite_x_coord: {
-    lo: {
-        player: .byte 0
-        shadow: .byte 0
-        gun:    .byte 0
-        npc:    .byte 0
-        npc2:   .byte 0
-        npc_shadow1: .byte 0
-        npc_shadow2: .byte 0
-        unused: .byte 0
-    }
-    hi: {
-        player: .byte 0
-        shadow: .byte 0
-        gun:    .byte 0
-        npc:    .byte 0
-        npc2:   .byte 0
-        npc_shadow1: .byte 0
-        npc_shadow2: .byte 0
-        unused: .byte 0
-    }
-}
+#import "object.asm"
 
 player_x:
     .word 0

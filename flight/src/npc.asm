@@ -1,6 +1,67 @@
 npc: {
 .segment Default
 
+cycle_npc: {
+    lda level_renderer.bottom+1
+
+    clc
+    adc #NPC_TRIGGER_OFFSET
+    ldx npc.next_npc
+    cmp npc.npc_trigger,x
+    bcs !+
+    rts
+
+!:  // Next NPC in frame, setup game logic things for that NPC here
+    ldy npc.next_npc_sprite
+
+    lda #0
+    sta object.y.lo.npc_shadow1,y
+    lda npc.npc_trigger,x
+    sta object.y.hi.npc_shadow1,y
+
+    lda npc.npc_trigger_x_coord_lo,y
+    sta object.x.lo.npc,y
+    lda npc.npc_trigger_x_coord_hi,y
+    sta object.x.hi.npc,y
+
+    cpy #0
+    bne !+
+    {
+        lda npc.npc_move_func_lo,x
+        sta npc_move_call
+        lda npc.npc_move_func_hi,x
+        sta npc_move_call + 1
+        lda #0
+        sta npc.npc_sequence_pos
+        sta npc.npc_sequence_pos_scale
+    }
+    jmp !done+
+!:
+    lda npc.npc_move_func_lo,x
+    sta npc_move_call2
+    lda npc.npc_move_func_hi,x
+    sta npc_move_call2 + 1
+    lda #0
+    sta npc.npc_sequence_pos+1
+    sta npc.npc_sequence_pos_scale+1
+
+!done:
+    inx
+    stx npc.next_npc
+
+    lda #1
+    sta npc.npc_is_alive,y
+    lda #NPC_HELICOPTER_HITS
+    sta npc.npc_hitpoints,y
+
+    tya
+    eor #1  // Toggle two words back and forth
+    sta npc.next_npc_sprite
+
+    rts
+}
+
+
 update_npc_hit:
 {
     lda npc_player_fire_x+1
@@ -29,14 +90,14 @@ update_npc_hit:
     lda npc_player_fire_x+1
     adc #0
     sta npc_temp+1
-    cmp16x_mem(sprite_x_coord.lo.npc, sprite_x_coord.hi.npc, npc_temp)
+    cmp16x_mem(object.x.lo.npc, object.x.hi.npc, npc_temp)
     bcs !+
 
     clc
-    lda sprite_x_coord.lo.npc,x
+    lda object.x.lo.npc,x
     adc #24
     sta npc_temp
-    lda sprite_x_coord.hi.npc+1,x
+    lda object.x.hi.npc+1,x
     adc #0
     sta npc_temp+1
 
@@ -105,20 +166,20 @@ update_npc:
     // Update and store x-position of NPC which is unaffected by height
     clc
     lda npc_movement_x_lo,y
-    adc sprite_x_coord.lo.npc,x
-    sta sprite_x_coord.lo.npc,x
+    adc object.x.lo.npc,x
+    sta object.x.lo.npc,x
     lda npc_movement_x_hi,y
-    adc sprite_x_coord.hi.npc,x
-    sta sprite_x_coord.hi.npc,x
+    adc object.x.hi.npc,x
+    sta object.x.hi.npc,x
 
     // Update and store NPC shadow y-position as it's not affected by height
     clc
     lda npc_movement_y_lo,y
-    adc sprite_y_coord.lo.npc_shadow1,x
-    sta sprite_y_coord.lo.npc_shadow1,x
+    adc object.y.lo.npc_shadow1,x
+    sta object.y.lo.npc_shadow1,x
     lda npc_movement_y_hi,y
-    adc sprite_y_coord.hi.npc_shadow1,x
-    sta sprite_y_coord.hi.npc_shadow1,x
+    adc object.y.hi.npc_shadow1,x
+    sta object.y.hi.npc_shadow1,x
 
     // Update y position of NPC based on shadow y position and height
     ldy npc_h_index
@@ -127,21 +188,21 @@ update_npc:
 
     clc
     lda height_to_world,y
-    adc sprite_y_coord.lo.npc_shadow1,x
-    sta sprite_y_coord.lo.npc,x
+    adc object.y.lo.npc_shadow1,x
+    sta object.y.lo.npc,x
     lda #0
-    adc sprite_y_coord.hi.npc_shadow1,x
-    sta sprite_y_coord.hi.npc,x
+    adc object.y.hi.npc_shadow1,x
+    sta object.y.hi.npc,x
 
     // Finally fix shadow X-position
     clc
-    lda sprite_x_coord.lo.npc,x
+    lda object.x.lo.npc,x
     ldy npc_h_index
     adc npc_h,y
-    sta sprite_x_coord.lo.npc_shadow1,x
-    lda sprite_x_coord.hi.npc,x
+    sta object.x.lo.npc_shadow1,x
+    lda object.x.hi.npc,x
     adc #0
-    sta sprite_x_coord.hi.npc_shadow1,x
+    sta object.x.hi.npc_shadow1,x
 
     rts
 }
