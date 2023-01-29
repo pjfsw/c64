@@ -483,9 +483,10 @@ sprite_data_end:
 // y = pixel on screen (scroll)
 // n = 3-bit fixed point
 
-.segment DATA
 
 #import "object.asm"
+
+.segment DATA
 
 player_x:
     .word 0
