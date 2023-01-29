@@ -93,7 +93,7 @@
         jsr update_screen
         debug1()
         jsr update_hud
-        jsr update_anim
+        //jsr update_anim
         jsr read_input
         set_top_row_colors(HUD_CHAR_COLOR)
 
@@ -298,22 +298,6 @@
         bcs !+
         sty joyfire
     !:
-        rts
-    }
-
-    update_anim:
-    {
-        inc player_anim
-        lda player_anim
-        lsr
-        and #1
-        clc
-        adc #player_sprite/64
-        sta sprite_ptr + PLAYER_SPRITE_NO
-        adc #SHADOW_SPRITE_OFFSET
-        sta sprite_ptr + SHADOW_SPRITE_NO
-        lda #gun_sprite/64
-        sta sprite_ptr + FIRE_SPRITE_NO
         rts
     }
 

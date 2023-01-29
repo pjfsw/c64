@@ -47,6 +47,8 @@
     .const NPC_HELICOPTER_HITS = 5
     .const NPCS_ON_SCREEN = 2
 
+    .const PLAYER_ANIMATION_SPEED = 3
+    .const FIRE_ANIMATION_SPEED = 100
 
 .macro set_top_row_colors(color) {
     lda #color
@@ -69,6 +71,7 @@ program_start:
     lda #IRQ_ROW
     jsr irq.lib_setup_irq
     jsr setup_screen
+    jsr init_animations
     cli
 
 main:
@@ -79,9 +82,7 @@ main:
     sec
     sbc last_frame
     sta frames
-    lda npc.next_npc
-    sta $d020
-    //debug3()
+    debug3()
     jsr move_player
     lda npc.next_npc
     cmp #NUMBER_OF_NPCS
@@ -103,30 +104,34 @@ main:
 
     inc npc.npc_h_index
 
+    debug3()
+    jsr object.animate
+    debug2()
     jsr draw_sprites
     debugoff(BORDER_COLOR)
     jmp main
+
 
 do_nothing:
     rts
 
 draw_sprites:
 {
-    lda #1
-    sta level_renderer.sprite_enabled + PLAYER_SPRITE_NO
-    sta level_renderer.sprite_enabled + FIRE_SPRITE_NO
-    sta level_renderer.sprite_enabled + SHADOW_SPRITE_NO
-
     .for (var i = 0; i < NPCS_ON_SCREEN; i++) {
         lda npc.npc_enabled + i
         sta level_renderer.sprite_enabled + NPC_SPRITE_NO + i
         sta level_renderer.sprite_enabled + NPC_SHADOW_SPRITE_NO + i
     }
 
-
     // World coordinates are pointing upwards, so first we add a screen length to the bottom coordinate
     add16(level_renderer.bottom, chars_to_world(24), world_top)
     .for (var i = 0; i < 7; i++) {
+        .if (i < 3) {
+            lda object.sprite.ptr + i
+            sta level_renderer.sprite_ptr + i
+            lda object.sprite.enabled + i
+            sta level_renderer.sprite_enabled + i
+        }
         ldx #0
         ldy #0
 
@@ -167,6 +172,7 @@ draw_sprites:
         stx level_renderer.sprite_x + i
         sty level_renderer.sprite_x_hi + i
     }
+    rts
 }
 
 update_fire:
@@ -188,42 +194,32 @@ update_fire:
     sta object.y.hi.gun
 
     lda level_renderer.joyfire
-    beq !+
-    lda gun_repeat_time
     bne !+
-    lda #6
-    sta gun_repeat_time
-    lda object.x.lo.player
-    sta object.x.lo.gun
-    sta npc.npc_player_fire_x
-    lda object.x.hi.player
-    sta object.x.hi.gun
-    sta npc.npc_player_fire_x + 1
-!:
-    lda gun_repeat_time
-    beq !+
-    dec gun_repeat_time
-!:
-    // TODO multiplex fire sprite between player and enemy fire
-    lda level_renderer.frame
-    and #2
-    bne !odd_frame+
-
-    ldx gun_anim
-    lda gun_anim_color,x
-    sta level_renderer.sprite_color + FIRE_SPRITE_NO
-    inx
-    cpx #gun_anim_color_end-gun_anim_color
-    bne !+
-    ldx #0
-!:
-    stx gun_anim
-    rts
-
-!odd_frame:
     lda #0
-    sta level_renderer.sprite_x + FIRE_SPRITE_NO
-    sta level_renderer.sprite_x_hi + FIRE_SPRITE_NO
+    sta gun_repeat_time
+    rts
+!:
+    lda gun_repeat_time
+    bne !+ // Don't allow continous shooting for now*/
+    {
+        lda #1
+        sta gun_repeat_time
+        lda object.x.lo.player
+        sta object.x.lo.gun
+        sta npc.npc_player_fire_x
+        lda object.x.hi.player
+        sta object.x.hi.gun
+        sta npc.npc_player_fire_x + 1
+
+        jmp reset_fire_animation
+        //lda #1
+        //sta object.sprite.enabled + FIRE_SPRITE_NO
+        //lda #FIRE_ANIMATION_SPEED
+        //sta object.animation.timer + FIRE_SPRITE_NO
+        //lda #0
+        //sta object.animation.loop + FIRE_SPRITE_NO
+    }
+!:
     rts
 
 }
@@ -346,6 +342,60 @@ level_clear_irq: {
     }
 }
 
+init_animations:
+    lda #<player_animation
+    sta object.animation.ptr_lo + PLAYER_SPRITE_NO
+    lda #>player_animation
+    sta object.animation.ptr_hi + PLAYER_SPRITE_NO
+
+    lda #<shadow_animation
+    sta object.animation.ptr_lo + SHADOW_SPRITE_NO
+    lda #>shadow_animation
+    sta object.animation.ptr_hi + SHADOW_SPRITE_NO
+
+    lda #player_animation_end-player_animation
+    sta object.animation.animation_length + PLAYER_SPRITE_NO
+    sta object.animation.animation_length + SHADOW_SPRITE_NO
+
+    lda #PLAYER_ANIMATION_SPEED
+    sta object.animation.frame_length + PLAYER_SPRITE_NO
+    sta object.animation.timer + PLAYER_SPRITE_NO
+    sta object.animation.frame_length + SHADOW_SPRITE_NO
+    sta object.animation.timer + SHADOW_SPRITE_NO
+
+    lda #1
+    sta object.animation.loop + PLAYER_SPRITE_NO
+    sta object.animation.loop + SHADOW_SPRITE_NO
+
+    sta object.sprite.enabled + PLAYER_SPRITE_NO
+    sta object.sprite.enabled + SHADOW_SPRITE_NO
+
+    lda #0
+    sta object.animation.frame + PLAYER_SPRITE_NO
+    sta object.animation.frame + SHADOW_SPRITE_NO
+
+    jmp reset_fire_animation
+
+reset_fire_animation:
+    lda #<gun_animation
+    sta object.animation.ptr_lo + FIRE_SPRITE_NO
+    lda #>gun_animation
+    sta object.animation.ptr_hi + FIRE_SPRITE_NO
+
+    lda #1
+    sta object.animation.loop + FIRE_SPRITE_NO
+    sta object.animation.frame + FIRE_SPRITE_NO
+    lda #1
+    sta object.animation.animation_length + FIRE_SPRITE_NO
+
+    lda #PLAYER_ANIMATION_SPEED
+    sta object.animation.frame_length + FIRE_SPRITE_NO
+    sta object.animation.timer + FIRE_SPRITE_NO
+    lda #1
+    sta object.sprite.enabled + FIRE_SPRITE_NO
+
+    rts
+
 setup_screen:
     and #%11111100
     ora #%00000001 // // VIC bank in $8000-$bfff
@@ -454,14 +504,16 @@ copy_sprites:
 #import "../../lib/src/irq.asm"
 #import "arithmetic.asm"
 
-gun_anim:
-    .byte 0
-gun_anim_color:
-    .byte 8,7,2,1
-gun_anim_color_end:
+gun_animation:
+    .byte gun_sprite/64, gun_sprite/64
+gun_animation_end:
 
-player_anim:
-    .byte 0
+player_animation:
+    .byte player_sprite/64, player_sprite/64+1
+player_animation_end:
+shadow_animation:
+    .byte shadow_sprite/64, shadow_sprite/64+1
+shadow_animation_end:
 
 world_coord_high_bits:
     .fill 8,i*32

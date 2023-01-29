@@ -61,7 +61,6 @@ cycle_npc: {
     rts
 }
 
-
 update_npc_hit:
 {
     lda npc_player_fire_x+1

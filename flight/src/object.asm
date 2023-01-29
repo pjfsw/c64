@@ -7,7 +7,7 @@ object: {
         ldx #7
     !next_object:
         lda sprite.enabled,x
-        bne !done+
+        beq !done+
         {
             lda animation.timer,x
             beq !advance_frame+
@@ -52,6 +52,7 @@ object: {
     !done:
         dex
         bpl !next_object-
+        rts
     }
 
 
