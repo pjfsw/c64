@@ -44,6 +44,7 @@
     .const IRQ_ROW = $d8
     .const NUMBER_OF_NPCS = 50
     .const NPC_TRIGGER_OFFSET = 2
+    .const NPC_HELICOPTER_HITS = 5
 
 
 .macro set_top_row_colors(color) {
@@ -165,10 +166,10 @@ cycle_npc: {
     clc
     adc #NPC_TRIGGER_OFFSET
     ldx npc.next_npc
-    //stx $d021
     cmp npc.npc_trigger,x
     bcs !+
     rts
+
 !:  // Next NPC in frame, setup game logic things for that NPC here
     lda #0
     ldy npc.next_npc_sprite
@@ -204,6 +205,14 @@ cycle_npc: {
 !done:
     inx
     stx npc.next_npc
+
+    tya
+    lsr
+    tax
+    lda #1
+    sta npc.npc_is_alive,x
+    lda #NPC_HELICOPTER_HITS
+    sta npc.npc_hitpoints,x
 
     tya
     eor #%00000010  // Toggle two words back and forth

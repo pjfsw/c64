@@ -8,8 +8,8 @@ update_npc_hit:
     beq !+
 
     ldx npc_index
-    lda npc_is_dead,x
-    bne !+
+    lda npc_is_alive,x
+    beq !+
 
     // Compare heights first
     ldy npc_h_index
@@ -47,22 +47,26 @@ update_npc_hit:
 
     cmp16mem(npc_temp, npc_player_fire_x)
     bcc !+
-
-    ldx npc_index
-    inc npc_hits,x
-    lda #4
-    sta npc_hit_display_timer,x
+    {
+        ldx npc_index
+        dec npc_hitpoints,x
+        bne !+
+        lda #0
+        sta npc_is_alive,x
+        rts
+    !:
+        lda #4
+        sta npc_hit_display_timer,x
+    }
 !:
     rts
 }
 
 update_npc:
 {
-    lda #1
-    sta npc_enabled
-    sta npc_enabled + 1
-
     ldx npc_index
+    lda npc_is_alive,x
+    sta npc_enabled,x
 
     // Animation stuff
     lda level_renderer.frame
@@ -159,9 +163,9 @@ next_npc_sprite:
     .byte 0
 npc_trigger_x_coord:
     .word 0,0
-npc_hits:
+npc_hitpoints:
     .fill 2,0
-npc_is_dead:
+npc_is_alive:
     .fill 2,0
 npc_hit_display_timer:
     .fill 2,0
