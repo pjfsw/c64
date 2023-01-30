@@ -177,13 +177,8 @@ draw_sprites:
 
 update_fire:
 {
-    // TODO Separate gun animation from position where shot was fired.
     lda #0
-    sta object.x.lo.gun
-    sta object.x.hi.gun
-    lda #$ff
-    sta npc.npc_player_fire_x
-    sta npc.npc_player_fire_x + 1
+    sta npc.player_fire
 
     clc
     lda object.y.lo.player
@@ -192,6 +187,14 @@ update_fire:
     lda object.y.hi.player
     adc #>pixels_to_world(5)
     sta object.y.hi.gun
+
+    lda object.x.lo.player
+    sta object.x.lo.gun
+    sta npc.npc_player_fire_x
+    lda object.x.hi.player
+    sta object.x.hi.gun
+    sta npc.npc_player_fire_x + 1
+
 
     lda level_renderer.joyfire
     bne !+
@@ -203,21 +206,12 @@ update_fire:
     bne !+ // Don't allow continous shooting for now*/
     {
         lda #1
+        sta npc.player_fire
+
+        lda #1
         sta gun_repeat_time
-        lda object.x.lo.player
-        sta object.x.lo.gun
-        sta npc.npc_player_fire_x
-        lda object.x.hi.player
-        sta object.x.hi.gun
-        sta npc.npc_player_fire_x + 1
 
         jmp reset_fire_animation
-        //lda #1
-        //sta object.sprite.enabled + FIRE_SPRITE_NO
-        //lda #FIRE_ANIMATION_SPEED
-        //sta object.animation.timer + FIRE_SPRITE_NO
-        //lda #0
-        //sta object.animation.loop + FIRE_SPRITE_NO
     }
 !:
     rts
@@ -382,7 +376,7 @@ reset_fire_animation:
     lda #>gun_animation
     sta object.animation.ptr_hi + FIRE_SPRITE_NO
 
-    lda #1
+    lda #0
     sta object.animation.loop + FIRE_SPRITE_NO
     sta object.animation.frame + FIRE_SPRITE_NO
     lda #1

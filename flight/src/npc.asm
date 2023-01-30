@@ -63,8 +63,7 @@ cycle_npc: {
 
 update_npc_hit:
 {
-    lda npc_player_fire_x+1
-    cmp #$ff
+    lda player_fire
     beq !+
 
     ldx npc_index
@@ -257,6 +256,8 @@ npc_h_index:
     .byte 0
 npc_enabled:
     .byte 0,0
+player_fire:
+    .byte 0
 }
 
 .function getMoveX(i) {
