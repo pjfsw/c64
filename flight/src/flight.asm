@@ -48,7 +48,7 @@
     .const NPCS_ON_SCREEN = 2
 
     .const PLAYER_ANIMATION_SPEED = 3
-    .const FIRE_ANIMATION_SPEED = 100
+    .const FIRE_ANIMATION_SPEED = 3
 
 .macro set_top_row_colors(color) {
     lda #color
@@ -195,27 +195,25 @@ update_fire:
     sta object.x.hi.gun
     sta npc.npc_player_fire_x + 1
 
-
+    lda gun_repeat_time
+    beq !+
+    dec gun_repeat_time
+    rts
+!:
     lda level_renderer.joyfire
     bne !+
-    lda #0
+    rts
+!:
+    lda #1
+    sta npc.player_fire
+
+    lda #FIRE_ANIMATION_SPEED * 3
     sta gun_repeat_time
-    rts
-!:
-    lda gun_repeat_time
-    bne !+ // Don't allow continous shooting for now*/
-    {
-        lda #1
-        sta npc.player_fire
 
-        lda #1
-        sta gun_repeat_time
+    lda #1
+    sta object.sprite.enabled + FIRE_SPRITE_NO
 
-        jmp reset_fire_animation
-    }
-!:
-    rts
-
+    jmp reset_fire_animation
 }
 
 .const HSPEED = 2
@@ -368,26 +366,27 @@ init_animations:
     sta object.animation.frame + PLAYER_SPRITE_NO
     sta object.animation.frame + SHADOW_SPRITE_NO
 
-    jmp reset_fire_animation
-
-reset_fire_animation:
     lda #<gun_animation
     sta object.animation.ptr_lo + FIRE_SPRITE_NO
     lda #>gun_animation
     sta object.animation.ptr_hi + FIRE_SPRITE_NO
+    lda #FIRE_ANIMATION_SPEED
+    sta object.animation.frame_length + FIRE_SPRITE_NO
 
+    lda #0
+    sta object.sprite.enabled + FIRE_SPRITE_NO
+
+    jmp reset_fire_animation
+
+reset_fire_animation:
     lda #0
     sta object.animation.loop + FIRE_SPRITE_NO
     sta object.animation.frame + FIRE_SPRITE_NO
     lda #1
     sta object.animation.animation_length + FIRE_SPRITE_NO
 
-    lda #PLAYER_ANIMATION_SPEED
-    sta object.animation.frame_length + FIRE_SPRITE_NO
+    lda #FIRE_ANIMATION_SPEED
     sta object.animation.timer + FIRE_SPRITE_NO
-    lda #1
-    sta object.sprite.enabled + FIRE_SPRITE_NO
-
     rts
 
 setup_screen:
