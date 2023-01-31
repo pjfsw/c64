@@ -1,6 +1,9 @@
     .segmentdef DATA[startAfter= "Default", align=$100, virtual]
     .segmentdef ZP[start=$02, virtual]
 
+    .const EXPLOSION_IMG = LoadPicture("explosion.png")
+    .const EXPLOSION_FRAMES = EXPLOSION_IMG.height/21
+
     .const SCREEN=$8800
     .const SCREEN_D018=$24
     .const SCREEN_SPRITES=SCREEN+$3f8
@@ -44,7 +47,6 @@
     .const IRQ_ROW = $d8
     .const NUMBER_OF_NPCS = 50
     .const NPC_TRIGGER_OFFSET = 2
-    .const NPC_HELICOPTER_HITS = 5
     .const NPCS_ON_SCREEN = 2
 
     .const PLAYER_ANIMATION_SPEED = 3
@@ -565,14 +567,14 @@ gun_sprite:
     .fill 64,0
 npc_sprite:
     .fill 128,0
+explosion_sprite:
+    .fill 64*EXPLOSION_FRAMES,0
+empty_sprite:
+    .fill 64,0
 shadow_sprite:
     .fill 128,0
 npc_shadow_sprite:
     .fill 128,0
-explosion_sprite:
-    .fill 64*6,0
-empty_sprite:
-    .fill 64,0
 
 .segment ZP
 .zp {

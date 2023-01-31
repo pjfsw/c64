@@ -95,11 +95,10 @@ npc_chopper:
         .byte 0
     }
 explosion:
-    .var explosionImg = LoadPicture("explosion.png")
-    .for (var i = 0; i < explosionImg.height/21; i++) {
+    .for (var i = 0; i < EXPLOSION_FRAMES; i++) {
         .for (var y = 0; y < 21; y++) {
             .for (var x = 0; x < 3; x++) {
-                .byte explosionImg.getSinglecolorByte(x,i*21+y)
+                .byte EXPLOSION_IMG.getSinglecolorByte(x,i*21+y)
             }
         }
         .byte 0

@@ -2,6 +2,8 @@ npc: {
 .segment Default
 
 .const HELI_ANIMATION_SPEED = 3
+.const EXPLODE_ANIMATION_SPEED = 3
+.const NPC_HELICOPTER_HITS = 2
 
 cycle_npc: {
     lda level_renderer.bottom+1
@@ -67,8 +69,6 @@ cycle_npc: {
 
 // Sprite index in x!
 init_animation: {
-    lda #1
-    sta $d021
     lda #HELI_ANIMATION_SPEED
     sta object.animation.frame_length + NPC_SPRITE_NO,y
     sta object.animation.frame_length + NPC_SHADOW_SPRITE_NO,y
@@ -80,12 +80,14 @@ init_animation: {
     sta object.animation.animation_length + NPC_SHADOW_SPRITE_NO,y
 
     lda #heli_shadow_animation_end-heli_shadow_animation
-    sta object.animation.loop + NPC_SPRITE_NO,y
-    sta object.animation.loop + NPC_SHADOW_SPRITE_NO,y
+    sta object.animation.animation_length + NPC_SPRITE_NO,y
+    sta object.animation.animation_length + NPC_SHADOW_SPRITE_NO,y
 
     lda #1
     sta object.sprite.enabled + NPC_SPRITE_NO,y
     sta object.sprite.enabled + NPC_SHADOW_SPRITE_NO,y
+    sta object.animation.loop + NPC_SPRITE_NO,y
+    sta object.animation.loop + NPC_SHADOW_SPRITE_NO,y
 
     lda #0
     sta object.animation.frame + NPC_SPRITE_NO,y
@@ -100,6 +102,29 @@ init_animation: {
     sta object.animation.ptr_lo + NPC_SHADOW_SPRITE_NO,y
     lda #>heli_shadow_animation
     sta object.animation.ptr_hi + NPC_SHADOW_SPRITE_NO,y
+    rts
+}
+
+explode: {
+    lda #EXPLODE_ANIMATION_SPEED
+    sta object.animation.frame_length + NPC_SPRITE_NO,x
+    sta object.animation.timer + NPC_SPRITE_NO,x
+
+    lda #EXPLOSION_FRAMES
+    sta object.animation.animation_length + NPC_SPRITE_NO,x
+
+    lda #1
+    sta object.sprite.enabled + NPC_SPRITE_NO,x
+
+    lda #0
+    sta object.sprite.enabled + NPC_SHADOW_SPRITE_NO,x
+    sta object.animation.frame + NPC_SPRITE_NO,x
+    sta object.animation.loop + NPC_SPRITE_NO,x
+
+    lda #<explode_animation
+    sta object.animation.ptr_lo + NPC_SPRITE_NO,x
+    lda #>explode_animation
+    sta object.animation.ptr_hi + NPC_SPRITE_NO,x
     rts
 }
 
@@ -149,6 +174,7 @@ update_npc_hit:
         bne !+
         lda #0
         sta npc_is_alive,x
+        jsr explode
         rts
     !:
         lda #4
@@ -161,8 +187,8 @@ update_npc_hit:
 update_npc:
 {
     ldx npc_index
-    lda npc_is_alive,x
-    sta npc_enabled,x
+    //lda npc_is_alive,x
+    //sta npc_enabled,x
 
     lda npc_sequence_pos_scale,x
     clc
@@ -261,6 +287,10 @@ heli_animation_end:
 heli_shadow_animation:
     .byte npc_shadow_sprite/64, npc_shadow_sprite/64+1
 heli_shadow_animation_end:
+
+explode_animation:
+    .fill EXPLOSION_FRAMES,explosion_sprite/64+i
+explode_animation_end:
 
 .segment DATA
 npc_index:
