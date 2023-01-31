@@ -2,9 +2,35 @@
 
 .segment Default
 
+.const NUMBER_OF_BULLETS=3
+
 object: {
+    // Sprite 7 is bullet sprite shared between 2 x NPC + player
+    multiplex: {
+        ldx multiplex_count
+        lda bullet.x_lo,x
+        sta x.lo + 7
+        lda bullet.x_hi,x
+        sta x.hi + 7
+        lda bullet.y_lo,x
+        sta y.lo + 7
+        lda bullet.y_hi,x
+        sta y.hi + 7
+        lda bullet.ptr,x
+        sta sprite.ptr + 7
+        lda bullet.enabled,x
+        sta sprite.enabled + 7
+        inx
+        cpx #NUMBER_OF_BULLETS
+        bne !+
+        ldx #0
+    !:
+        stx multiplex_count
+        rts
+    }
+
     animate: {
-        ldx #7
+        ldx #6 // Sprites 0-6 are animated
     !next_object:
         lda sprite.enabled,x
         beq !done+
@@ -55,8 +81,18 @@ object: {
         rts
     }
 
+multiplex_count:
+    .byte 0
 
 .segment DATA
+    bullet: {
+        x_lo: .fill NUMBER_OF_BULLETS,0
+        x_hi: .fill NUMBER_OF_BULLETS,0
+        y_lo: .fill NUMBER_OF_BULLETS,0
+        y_hi: .fill NUMBER_OF_BULLETS,0
+        ptr: .fill NUMBER_OF_BULLETS,0
+        enabled: .fill NUMBER_OF_BULLETS,0
+    }
 
     // IN WORLD COORDINATES
     y: {
@@ -68,7 +104,8 @@ object: {
             npc2:   .byte 0
             npc_shadow1: .byte 0
             npc_shadow2: .byte 0
-            unused: .byte 0
+            bullet: .byte 0
+
         }
         hi: {
             player: .byte 0
@@ -78,7 +115,7 @@ object: {
             npc2:   .byte 0
             npc_shadow1: .byte 0
             npc_shadow2: .byte 0
-            unused: .byte 0
+            bullet: .byte 0
         }
     }
 
@@ -92,7 +129,7 @@ object: {
             npc2:   .byte 0
             npc_shadow1: .byte 0
             npc_shadow2: .byte 0
-            unused: .byte 0
+            bullet: .byte 0
         }
         hi: {
             player: .byte 0
@@ -102,7 +139,7 @@ object: {
             npc2:   .byte 0
             npc_shadow1: .byte 0
             npc_shadow2: .byte 0
-            unused: .byte 0
+            bullet: .byte 0
         }
     }
 

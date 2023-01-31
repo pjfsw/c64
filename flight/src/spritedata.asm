@@ -94,6 +94,9 @@ npc_chopper:
         }
         .byte 0
     }
+bullet:
+    .fill 63,255
+    .byte 0
 explosion:
     .for (var i = 0; i < EXPLOSION_FRAMES; i++) {
         .for (var y = 0; y < 21; y++) {
@@ -103,4 +106,3 @@ explosion:
         }
         .byte 0
     }
-    .fill 64,0

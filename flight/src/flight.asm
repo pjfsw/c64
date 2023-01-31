@@ -108,6 +108,7 @@ main:
 
     debug3()
     jsr object.animate
+    jsr object.multiplex
     debug2()
     jsr draw_sprites
     debugoff(BORDER_COLOR)
@@ -567,6 +568,8 @@ gun_sprite:
     .fill 64,0
 npc_sprite:
     .fill 128,0
+bullet_sprite:
+    .fill 64,0
 explosion_sprite:
     .fill 64*EXPLOSION_FRAMES,0
 empty_sprite:
