@@ -2,8 +2,12 @@ npc: {
 .segment Default
 
 .const HELI_ANIMATION_SPEED = 3
-.const EXPLODE_ANIMATION_SPEED = 3
-.const NPC_HELICOPTER_HITS = 2
+.const EXPLODE_ANIMATION_SPEED = 2
+.const NPC_HELICOPTER_HITS = 3
+.const NPC_COLOR = 0
+.const NPC_EXPL_COLOR = 7
+.const NPC_HIT_COLOR = 1
+.const HIT_DISPLAY_FRAMES = 4
 
 cycle_npc: {
     lda level_renderer.bottom+1
@@ -69,6 +73,10 @@ cycle_npc: {
 
 // Sprite index in x!
 init_animation: {
+    lda #NPC_COLOR
+    sta level_renderer.sprite_color + NPC_SPRITE_NO,y
+    sta level_renderer.sprite_color + NPC_SHADOW_SPRITE_NO,y
+
     lda #HELI_ANIMATION_SPEED
     sta object.animation.frame_length + NPC_SPRITE_NO,y
     sta object.animation.frame_length + NPC_SHADOW_SPRITE_NO,y
@@ -106,6 +114,9 @@ init_animation: {
 }
 
 explode: {
+    lda #NPC_EXPL_COLOR
+    sta level_renderer.sprite_color + NPC_SPRITE_NO,x
+
     lda #EXPLODE_ANIMATION_SPEED
     sta object.animation.frame_length + NPC_SPRITE_NO,x
     sta object.animation.timer + NPC_SPRITE_NO,x
@@ -177,8 +188,9 @@ update_npc_hit:
         jsr explode
         rts
     !:
-        lda #4
+        lda #HIT_DISPLAY_FRAMES
         sta npc_hit_display_timer,x
+
     }
 !:
     rts
@@ -187,6 +199,25 @@ update_npc_hit:
 update_npc:
 {
     ldx npc_index
+
+    // First set correct sprite color
+    lda npc_is_alive,x
+    bne !+
+    lda #NPC_EXPL_COLOR
+    jmp !update_movement+
+!:
+    lda npc_hit_display_timer,x
+    beq !+
+    dec npc_hit_display_timer,x
+    beq !+
+    lda #NPC_HIT_COLOR
+    jmp !update_movement+
+!:
+    lda #NPC_COLOR
+
+!update_movement:
+    sta level_renderer.sprite_color + NPC_SPRITE_NO,x
+
     //lda npc_is_alive,x
     //sta npc_enabled,x
 
