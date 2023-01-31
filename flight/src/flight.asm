@@ -63,6 +63,9 @@ BasicUpstart2(program_start)
     *=$080e
 
 program_start:
+    lda #15
+    sta $d418 // Volume
+
     lda #0
     sta level_renderer.frame
     sta last_frame
@@ -85,6 +88,10 @@ main:
     sbc last_frame
     sta frames
     debug3()
+
+    lda #0
+    sta sfx.sound_on
+
     jsr move_player
     lda npc.next_npc
     cmp #NUMBER_OF_NPCS
@@ -111,6 +118,7 @@ main:
     jsr object.multiplex
     debug2()
     jsr draw_sprites
+    jsr sfx.play
     debugoff(BORDER_COLOR)
     jmp main
 
@@ -200,14 +208,13 @@ update_fire:
     bne !+
     rts
 !:
-    lda #1
-    sta npc.player_fire
-
-    lda #FIRE_ANIMATION_SPEED * 3
+    lda #FIRE_ANIMATION_SPEED * 2
     sta gun_repeat_time
 
     lda #1
     sta object.sprite.enabled + FIRE_SPRITE_NO
+    sta npc.player_fire
+    sta sfx.sound_on
 
     jmp reset_fire_animation
 }
@@ -533,6 +540,7 @@ sprite_data_end:
 
 
 #import "object.asm"
+#import "sfx.asm"
 
 .segment DATA
 
