@@ -117,21 +117,14 @@ do_nothing:
 
 draw_sprites:
 {
-    .for (var i = 0; i < NPCS_ON_SCREEN; i++) {
-        lda npc.npc_enabled + i
-        sta level_renderer.sprite_enabled + NPC_SPRITE_NO + i
-        sta level_renderer.sprite_enabled + NPC_SHADOW_SPRITE_NO + i
-    }
-
     // World coordinates are pointing upwards, so first we add a screen length to the bottom coordinate
     add16(level_renderer.bottom, chars_to_world(24), world_top)
     .for (var i = 0; i < 7; i++) {
-        .if (i < 3) {
-            lda object.sprite.ptr + i
-            sta level_renderer.sprite_ptr + i
-            lda object.sprite.enabled + i
-            sta level_renderer.sprite_enabled + i
-        }
+        lda object.sprite.ptr + i
+        sta level_renderer.sprite_ptr + i
+        lda object.sprite.enabled + i
+        sta level_renderer.sprite_enabled + i
+
         ldx #0
         ldy #0
 
@@ -335,6 +328,13 @@ level_clear_irq: {
 }
 
 init_animations:
+    ldx #7
+    lda #0
+!:
+    sta object.sprite.enabled,x
+    dex
+    bpl !-
+
     lda #<player_animation
     sta object.animation.ptr_lo + PLAYER_SPRITE_NO
     lda #>player_animation

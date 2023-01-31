@@ -1,6 +1,8 @@
 npc: {
 .segment Default
 
+.const HELI_ANIMATION_SPEED = 3
+
 cycle_npc: {
     lda level_renderer.bottom+1
 
@@ -23,6 +25,8 @@ cycle_npc: {
     sta object.x.lo.npc,y
     lda npc_trigger_x_coord_hi,y
     sta object.x.hi.npc,y
+
+    jsr init_animation
 
     cpy #0
     bne !+
@@ -60,6 +64,45 @@ cycle_npc: {
 
     rts
 }
+
+// Sprite index in x!
+init_animation: {
+    lda #1
+    sta $d021
+    lda #HELI_ANIMATION_SPEED
+    sta object.animation.frame_length + NPC_SPRITE_NO,y
+    sta object.animation.frame_length + NPC_SHADOW_SPRITE_NO,y
+    sta object.animation.timer + NPC_SPRITE_NO,y
+    sta object.animation.timer + NPC_SHADOW_SPRITE_NO,y
+
+    lda #heli_animation_end-heli_animation
+    sta object.animation.animation_length + NPC_SPRITE_NO,y
+    sta object.animation.animation_length + NPC_SHADOW_SPRITE_NO,y
+
+    lda #heli_shadow_animation_end-heli_shadow_animation
+    sta object.animation.loop + NPC_SPRITE_NO,y
+    sta object.animation.loop + NPC_SHADOW_SPRITE_NO,y
+
+    lda #1
+    sta object.sprite.enabled + NPC_SPRITE_NO,y
+    sta object.sprite.enabled + NPC_SHADOW_SPRITE_NO,y
+
+    lda #0
+    sta object.animation.frame + NPC_SPRITE_NO,y
+    sta object.animation.frame + NPC_SHADOW_SPRITE_NO,y
+
+    lda #<heli_animation
+    sta object.animation.ptr_lo + NPC_SPRITE_NO,y
+    lda #>heli_animation
+    sta object.animation.ptr_hi + NPC_SPRITE_NO,y
+
+    lda #<heli_shadow_animation
+    sta object.animation.ptr_lo + NPC_SHADOW_SPRITE_NO,y
+    lda #>heli_shadow_animation
+    sta object.animation.ptr_hi + NPC_SHADOW_SPRITE_NO,y
+    rts
+}
+
 
 update_npc_hit:
 {
@@ -120,33 +163,6 @@ update_npc:
     ldx npc_index
     lda npc_is_alive,x
     sta npc_enabled,x
-
-    // Animation stuff
-    lda level_renderer.frame
-    and #2
-    lsr
-    tay
-    clc
-    adc #npc_sprite/64
-    sta level_renderer.sprite_ptr + NPC_SPRITE_NO
-    sta level_renderer.sprite_ptr + NPC_SPRITE_NO+1
-    lda #0
-    sta level_renderer.sprite_color + NPC_SPRITE_NO,x
-    lda npc_hit_display_timer,x
-    beq !+
-    lda #2
-    sta level_renderer.sprite_color + NPC_SPRITE_NO,x
-    dec npc_hit_display_timer,x
-!:
-    // Setup proper sprite  pointers and colors
-    lda #0
-    sta level_renderer.sprite_color + NPC_SHADOW_SPRITE_NO,x
-
-    tya
-    clc
-    adc #npc_shadow_sprite/64
-    sta level_renderer.sprite_ptr + NPC_SHADOW_SPRITE_NO
-    sta level_renderer.sprite_ptr + NPC_SHADOW_SPRITE_NO+1
 
     lda npc_sequence_pos_scale,x
     clc
@@ -209,7 +225,6 @@ next_npc:
 next_npc_sprite:
     .byte 0
 
-
 npc_trigger_x_coord_lo:
     .fill NPCS_ON_SCREEN,0
 npc_trigger_x_coord_hi:
@@ -238,6 +253,14 @@ npc_movement_y_hi:
     .fill 64,>getMoveY(i)
 npc_h:
     .fill 256,round(8+7*sin(toRadians(i*360/256)))
+
+heli_animation:
+    .byte npc_sprite/64, npc_sprite/64+1
+heli_animation_end:
+
+heli_shadow_animation:
+    .byte npc_shadow_sprite/64, npc_shadow_sprite/64+1
+heli_shadow_animation_end:
 
 .segment DATA
 npc_index:
