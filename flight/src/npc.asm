@@ -186,6 +186,8 @@ update_npc_hit:
         lda #0
         sta npc_is_alive,x
         jsr explode
+        lda #2
+        sta sfx.sound_on
         rts
     !:
         lda #HIT_DISPLAY_FRAMES
