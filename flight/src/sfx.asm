@@ -2,7 +2,7 @@
 
 
 .const SFX_VOICE=$d400
-.const GUN_LENGTH = 4
+.const GUN_LENGTH = 2
 .const EXPLOSION_LENGTH = 8
 
 sfx: {
@@ -17,105 +17,95 @@ play:
 
     dec timer
 
-    // Continue sound
-    jmp modulate_ptr:nil // Modulate sound
+    // Continue and modulate
+    ldx current_sound
+    clc
+    lda freq
+    adc pitch_mod,x
+    sta freq
+    sta SFX_VOICE+1
+    rts
 !:
     // Sound finished
-    jmp sound_off_ptr:nil // Sound off
+    jmp sound_off
 
     // New sound
 !play_sound:
     sta save_a_to_x
 
-    jsr sound_off_ptr2:nil // Sound off
+    jsr sound_off
 
     ldx save_a_to_x:#0
+    dex
 
-    lda sound_on_lo,x
-    sta sound_on_ptr
-    lda sound_on_hi,x
-    sta sound_on_ptr+1
+    // Set frequency
+    lda pitch_lo,x
+    sta SFX_VOICE
+    lda pitch_hi,x
+    sta sfx.freq
+    sta SFX_VOICE+1
 
-    lda sound_mod_lo,x
-    sta modulate_ptr
-    lda sound_mod_hi,x
-    sta modulate_ptr+1
+    // PW
+    lda #0
+    sta SFX_VOICE+2
+    lda pulse_hi,x
+    sta SFX_VOICE+3
 
-    lda sound_off_lo,x
-    sta sound_off_ptr
-    sta sound_off_ptr2
+    // Attack/Decay
+    lda attack_decay,x
+    sta SFX_VOICE+5
 
-    lda sound_off_hi,x
-    sta sound_off_ptr+1
-    sta sound_off_ptr2+1
+    // Sustain/Release
+    lda sustain_release,x
+    sta SFX_VOICE+6
 
-    jmp sound_on_ptr:nil
+    // Waveform
+    lda voice_control,x
+    sta SFX_VOICE+4
 
-nil:
+    stx current_sound
+    lda length,x
+    sta timer
+
     rts
 
-player_gun_off:
-    lda #30
+sound_off:
+    ldx current_sound
+    lda pitch_end_hi,x
     sta SFX_VOICE+1
-    lda #$80
+    lda voice_control_off,x
     sta SFX_VOICE+4
     rts
-
-player_gun_mod:
-    lda freq
-    sec
-    sbc #4
-    sta freq
-    sta SFX_VOICE+1
-    rts
-
-player_gun:
-    lda #GUN_LENGTH
-    sta timer
-
-    sound_on(5000, 2048, $02, $38, $41)
-
-    rts
-
-explosion_on:
-    lda #EXPLOSION_LENGTH
-    sta timer
-    sound_on(4000, 0, $13, $48, $81)
-    rts
-
-explosion_mod:
-    sec
-    sbc #1
-    sta freq
-    sta SFX_VOICE+1
-    rts
-
-
-explosion_off:
-    lda #$80
-    sta SFX_VOICE + 4
-    rts
-
 
 sound_on:
     .byte 0
 
+attack_decay:
+    .byte $02, $15
+sustain_release:
+    .byte $38, $58
+voice_control:
+    .byte $41, $81
+voice_control_off:
+    .byte $80, $80
+pulse_hi:
+    .byte $08, $08
+pitch_lo:
+    .byte <5000, <3000
+pitch_hi:
+    .byte >5000, >3000
+pitch_end_hi:
+    .byte >3000, >1000
 
-sound_on_lo:
-     .byte <nil, <player_gun, <explosion_on
-sound_on_hi:
-     .byte >nil, >player_gun, >explosion_on
-sound_off_lo:
-    .byte <nil, <player_gun_off, <explosion_off
-sound_off_hi:
-    .byte >nil, >player_gun_off, >explosion_off
-sound_mod_lo:
-    .byte <nil, <player_gun_mod, <explosion_mod
-sound_mod_hi:
-    .byte >nil, >player_gun_mod, >explosion_mod
+pitch_mod:
+    .byte $fb, $ff
+length:
+    .byte GUN_LENGTH, EXPLOSION_LENGTH
 
     .segment DATA
 
+current_sound:
+    .byte 0
 timer:
     .byte 0
 freq:
