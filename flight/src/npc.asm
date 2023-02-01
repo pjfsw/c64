@@ -206,7 +206,9 @@ update_npc:
     lda npc_is_alive,x
     bne !+
     lda #NPC_EXPL_COLOR
-    jmp !update_movement+
+    sta level_renderer.sprite_color + NPC_SPRITE_NO,x
+    rts
+
 !:
     lda npc_hit_display_timer,x
     beq !+
@@ -219,9 +221,6 @@ update_npc:
 
 !update_movement:
     sta level_renderer.sprite_color + NPC_SPRITE_NO,x
-
-    //lda npc_is_alive,x
-    //sta npc_enabled,x
 
     lda npc_sequence_pos_scale,x
     clc
