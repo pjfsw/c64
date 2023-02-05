@@ -89,6 +89,9 @@
         stx save_x
         sty save_y
 
+        debug1()
+        jsr MUSIC.play
+
         debug2()
         jsr update_screen
         debug1()

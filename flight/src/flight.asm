@@ -3,6 +3,7 @@
 
     .const EXPLOSION_IMG = LoadPicture("explosion.png")
     .const EXPLOSION_FRAMES = EXPLOSION_IMG.height/21
+    .const MUSIC = LoadSid("flight2.sid")
 
     .const SCREEN=$8800
     .const SCREEN_D018=$24
@@ -65,6 +66,11 @@ BasicUpstart2(program_start)
 program_start:
     lda #15
     sta $d418 // Volume
+
+    ldx #0
+    ldy #0
+    lda #MUSIC.startSong-1
+    jsr MUSIC.init
 
     lda #0
     sta level_renderer.frame
@@ -323,6 +329,10 @@ level_clear_irq: {
     ldx save_x:#0
     rti
 }
+
+* = MUSIC.location "Music"
+    .fill MUSIC.size, MUSIC.getData(i)
+* = * "Code"
 
 #import "level_renderer.asm"
 #import "npc.asm"

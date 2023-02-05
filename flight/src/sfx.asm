@@ -1,7 +1,7 @@
 #importonce
 
 
-.const SFX_VOICE=$d400
+.const SFX_VOICE=$d40e
 .const GUN_LENGTH = 2
 .const EXPLOSION_LENGTH = 8
 
