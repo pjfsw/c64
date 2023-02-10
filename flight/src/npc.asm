@@ -4,7 +4,7 @@ npc: {
 .const HELI_ANIMATION_SPEED = 3
 .const EXPLODE_ANIMATION_SPEED = 2
 .const NPC_HELICOPTER_HITS = 3
-.const NPC_COLOR = 0
+.const NPC_COLOR = 12
 .const NPC_EXPL_COLOR = 7
 .const NPC_HIT_COLOR = 1
 .const HIT_DISPLAY_FRAMES = 4
@@ -75,6 +75,7 @@ cycle_npc: {
 init_animation: {
     lda #NPC_COLOR
     sta level_renderer.sprite_color + NPC_SPRITE_NO,y
+    lda #0
     sta level_renderer.sprite_color + NPC_SHADOW_SPRITE_NO,y
 
     lda #HELI_ANIMATION_SPEED
