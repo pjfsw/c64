@@ -157,13 +157,16 @@ nmi:
     ldx beat
     bne !+
     {
+        .var noteoff = List().add(%10110100,%11110010,$80)
+        .var noteon = List().add(%10111000,%11110101,$c0)
         .for (var i = 0; i < 3; i++) {
             ldx songpos
             lda tune+i*256,x
             beq !next_channel+
             bpl !+
             .if (i < 2) {
-                lda #%10110100
+                //lda #%10110100
+                lda #noteoff.get(i)
                 sta $4000 + i*4
             } else {
                 lda #$80
@@ -180,7 +183,8 @@ nmi:
 
             .if (i < 2) {
                 // Pulse
-                lda #%10111000
+                //lda #%10111000
+                lda #noteon.get(i)
                 sta $4000 + i*4
             } else {
                 // Triangle
@@ -192,7 +196,7 @@ nmi:
         }
         inc songpos
 
-        ldx #7
+        ldx #5
     }
 !:
     dex
@@ -259,27 +263,7 @@ apu_regs:
     .const nn = 0
     .const oo = 255
 tune:
-pulse1:
-    .for (var i = 0; i < 8; i++) {
-        .byte 28,nn,29,nn,31,nn,28,29
-        .byte nn,31,nn,28,29,nn,31,nn
-        .byte 26,nn,27,nn,29,nn,26,27
-        .byte nn,29,nn,26,27,nn,29,nn
-    }
-pulse2:
-    .for (var i = 0; i < 8; i++) {
-        .fill 2,[36,nn,nn,oo,48,nn,nn,oo]
-        .fill 2,[34,nn,nn,oo,46,nn,nn,oo]
-    }
-
-
-tria:
-    .for (var i = 0; i < 8; i++) {
-        .byte 24,oo,24,oo,24,oo,24,oo
-        .byte 36,oo,24,oo,24,oo,24,oo
-        .byte 22,oo,22,oo,22,oo,22,oo
-        .byte 34,oo,22,oo,31,oo,22,oo
-    }
+    #import "song.asm"
 
 .function note_to_freq(note) {
     .return 440 * pow(2, (note-69)/12)
