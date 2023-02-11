@@ -138,6 +138,11 @@ reset:
     sta $2005
     sta $2005
 
+    lda #0
+    sta beat
+    sta songpos
+
+    jsr init_apu
 
     cli
     lda #%10010000
@@ -146,10 +151,53 @@ reset:
     lda #%00011110
     sta $2001   // Show sprites and background
 
-
     jmp *
 
 nmi:
+    ldx beat
+    bne !+
+    {
+        .for (var i = 0; i < 3; i++) {
+            ldx songpos
+            lda tune+i*256,x
+            beq !next_channel+
+            bpl !+
+            .if (i < 2) {
+                lda #%10110100
+                sta $4000 + i*4
+            } else {
+                lda #$80
+                sta $4008
+            }
+            jmp !next_channel+
+        !:
+            tax
+
+            lda freq_lo,x
+            sta $4002 + i*4
+            lda freq_hi,x
+            sta $4003 + i*4
+
+            .if (i < 2) {
+                // Pulse
+                lda #%10111000
+                sta $4000 + i*4
+            } else {
+                // Triangle
+                lda #%11000000
+                sta $4000 + i*4
+                sta $4017
+            }
+        !next_channel:
+        }
+        inc songpos
+
+        ldx #7
+    }
+!:
+    dex
+    stx beat
+
     ldx sinpos
     inx
     stx sinpos
@@ -173,7 +221,6 @@ nmi:
         adc #8
     }
 
-
     // Transfer 256 bytes to Sprite OAM using DMA
     lda #>SPRITEOAM
     sta $4014
@@ -186,12 +233,78 @@ nmi:
 irq:
     rti
 
+init_apu:
+    // Init $4000-4013
+    ldy #$13
+!:
+    lda apu_regs,y
+    sta $4000,y
+    dey
+    bpl !-
+
+    // We have to skip over $4014 (OAMDMA)
+    lda #$0f
+    sta $4015
+    lda #$40
+    sta $4017
+    rts
+
+apu_regs:
+    .byte $30,$08,$00,$00
+    .byte $30,$08,$00,$00
+    .byte $80,$00,$00,$00
+    .byte $30,$00,$00,$00
+    .byte $00,$00,$00,$00
+
+    .const nn = 0
+    .const oo = 255
+tune:
+pulse1:
+    .for (var i = 0; i < 8; i++) {
+        .byte 28,nn,29,nn,31,nn,28,29
+        .byte nn,31,nn,28,29,nn,31,nn
+        .byte 26,nn,27,nn,29,nn,26,27
+        .byte nn,29,nn,26,27,nn,29,nn
+    }
+pulse2:
+    .for (var i = 0; i < 8; i++) {
+        .fill 2,[36,nn,nn,oo,48,nn,nn,oo]
+        .fill 2,[34,nn,nn,oo,46,nn,nn,oo]
+    }
+
+
+tria:
+    .for (var i = 0; i < 8; i++) {
+        .byte 24,oo,24,oo,24,oo,24,oo
+        .byte 36,oo,24,oo,24,oo,24,oo
+        .byte 22,oo,22,oo,22,oo,22,oo
+        .byte 34,oo,22,oo,31,oo,22,oo
+    }
+
+.function note_to_freq(note) {
+    .return 440 * pow(2, (note-69)/12)
+}
+
+.function freq_to_period(f) {
+    .var x = 111860.8/f - 1
+    .if (x >= 2048 || x < 8) {
+        .print "OVERLOAD" + x
+    }
+    .return x
+}
+
+freq_lo:
+    .fill 88,<freq_to_period(note_to_freq(i+36))
+freq_hi:
+    .fill 88,>freq_to_period(note_to_freq(i+36))
+
+
 palette_data:
     // background palette
     .fill 4,[0,$18,$38,$3f]
     // sprite palette
     .byte $30 // This sucker overwrites the background in $3f00 so might as well set the bg here
-    .byte $25,$14,$35
+    .byte $21,$11,$31
     .byte 0,$23,$12,$33
     .byte 0,$24,$13,$34
     .byte 0,$27,$37,$17
@@ -219,7 +332,7 @@ sprite_data_end:
     .const offcentery=3
 
 sintable:
-    .fill 256,round(44+8*offcentery+32*sin(toRadians(i*360/256)))
+    .fill 256,round(44+8*offcentery+30*sin(toRadians(i*360/256)))
 costable:
     .fill 256,round(124+8*(1+offcenterx)+80*cos(toRadians(i*360/256)))
 donutsintable:
@@ -245,6 +358,10 @@ background_data:
 }
     *=$0300 "Variables" virtual
 sinpos:
+    .byte 0
+beat:
+    .byte 0
+songpos:
     .byte 0
 
     *=$800a "VECTORS"
@@ -282,25 +399,25 @@ bg_rom:
     store_image(imgfile, imgwidth, imgheight, 2)
 
     .for (var i = 0; i < 2; i++) {
-        .byte %00010000
-        .byte %00010000
-        .byte %00010000
+        .byte %10011000
+        .byte %01101000
+        .byte %00001000
         .byte %00010011
         .byte %00010100
         .byte %10010100
-        .byte %01100011
-        .byte %00000000
+        .byte %10010011
+        .byte %01100000
     }
 
     .for (var i = 0; i < 2; i++) {
-        .byte %00100000
+        .byte %00010000
         .byte %00100000
         .byte %00100000
         .byte %00111000
         .byte %10100101
         .byte %10100101
         .byte %00100101
-        .byte %00000000
+        .byte %00001000
     }
 
     .for (var i = 0 ;i < 2; i++) {
@@ -311,7 +428,7 @@ bg_rom:
         .byte %00101001
         .byte %00101001
         .byte %11101001
-        .byte %00000000
+        .byte %00000010
     }
 
     .print (*-bg_rom)/16
