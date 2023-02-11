@@ -1,8 +1,9 @@
     .const imgwidth=14
-    .const imgwidth_px = imgwidth * 8
     .const imgheight=18
-    .const imgheight_px = imgheight * 8
     .var imgfile = LoadBinary("homer.data")
+
+    .var donutfile = LoadBinary("donut.data")
+
 
 .macro wait_vbl() {
 !:
@@ -18,6 +19,32 @@
     sta $2006
 }
 
+.macro store_image(img, width, height, gimpscale) {
+    .var width_px = width * 8
+
+    .var c=0
+    .for (var ch = 0; ch < width*height; ch++) { // Tile number
+        .for (var plane = 0; plane < 2; plane++) { // Bitplane 0 or 1
+
+            .for (var y = 0; y < 8; y++) {  // Row in tile
+                .eval c = 0
+                .for (var x = 0; x < 8; x++) { // Bit in tile
+                    .var imgy = (floor(ch/width) * 8) + y
+                    .var imgx = (mod(ch,width) * 8) + x
+                    .var pixel = img.uget(((imgy * width_px) + imgx) * gimpscale)
+                    .var bpldata = pixel & (1 << (1-plane))
+                    .eval c = c*2
+                    .if (bpldata == 0) {
+                        .eval c = (c | 1)
+                    }
+                }
+                .byte c
+            }
+        }
+    }
+}
+
+
     .const SPRITEOAM = $0200
 
     .encoding "ascii"
@@ -31,8 +58,6 @@
     .byte $00 // Mapper and mirroring
     .byte $09 // NES 2.0
     .fill 8,0 // TODO Investigate later, 0 for now
-
-    .print *
 
     *=$0010 "PRG-ROM"
 .pseudopc $8000 {
@@ -89,7 +114,7 @@ reset:
     bne !-
 
     // Load sprites
-    ldx #$0f
+    ldx #sprite_data_end-sprite_data-1
 !:
     lda sprite_data,x
     sta $0200,x
@@ -139,6 +164,16 @@ nmi:
         tax
     }
 
+    lda donutsintable,x
+    .for (var y = 0; y < 5; y++) {
+        .for (var x = 0; x < 5; x++) {
+            sta SPRITEOAM+16+y*(5*4)+x*4
+        }
+        clc
+        adc #8
+    }
+
+
     // Transfer 256 bytes to Sprite OAM using DMA
     lda #>SPRITEOAM
     sta $4014
@@ -157,28 +192,45 @@ palette_data:
     // sprite palette
     .byte $30 // This sucker overwrites the background in $3f00 so might as well set the bg here
     .byte $25,$14,$35
-    .fill 4,$05+i*$10
-    .fill 4,$09+i*$10
-    .fill 4,$0c+i*$10
+    .byte 0,$23,$12,$33
+    .byte 0,$24,$13,$34
+    .byte 0,$27,$37,$17
 
 sprite_data:
     .byte $40,$01,$00,$40
     .byte $48,$01,$01,$48
     .byte $50,$01,$02,$40
-    .byte $58,$01,$03,$48
+    .byte $58,$01,$01,$48
 
-    .const offcenter=2
+    .const donut_x = $18
+
+.macro donutrow(y,tile) {
+    .for (var i = 0; i < 5; i++) {
+        .byte y,tile+i,$03,donut_x+i*8
+    }
+}
+    // donut
+    .for (var i = 0; i < 5; i++) {
+        donutrow($20+i*8,2+i*5)
+    }
+sprite_data_end:
+
+    .const offcenterx=4
+    .const offcentery=3
 
 sintable:
-    .fill 256,round(44+32*sin(toRadians(i*360/256)))
+    .fill 256,round(44+8*offcentery+32*sin(toRadians(i*360/256)))
 costable:
-    .fill 256,round(124+8*offcenter+90*cos(toRadians(i*360/256)))
+    .fill 256,round(124+8*(1+offcenterx)+80*cos(toRadians(i*360/256)))
+donutsintable:
+    .fill 256,round(44+8*sin(toRadians(i*360/32)))
 
 background_data:
-    .fill 32*(30-imgheight)/2,255
-    .const pad_left = (32-imgwidth)/2+offcenter
+    .const pad_top = (30-imgheight)/2+offcentery
+    .const pad_left = (32-imgwidth)/2+offcenterx
     .const pad_right = 32-imgwidth-pad_left
 
+    .fill 32*pad_top,255
     .for (var y = 0; y < imgheight; y++) {
         .fill pad_left,255
         .for (var x = 0; x < imgwidth; x++) {
@@ -219,36 +271,14 @@ chr_rom_start:
     .byte %00100100
     .byte %00011000
 
-    .byte %
-
-    .for (var i = 1; i < 4; i++) {
-        .fill 4,[$0f,$0f]
-        .fill 4,[$00,$ff]
-    }
+    store_image(donutfile, 5, 5, 2)
+    .fill 16,$aa
     .fill $1000-(*-chr_rom_start),0
-bg_rom:
-    .const gimpscale=2 // Sometimes gimp adds ff after each pixel :-(
-    .var c=0
-    .var mask=0
-    .for (var ch = 0; ch < imgwidth*imgheight; ch++) { // Tile number
-        .for (var plane = 0; plane < 2; plane++) { // Bitplane 0 or 1
 
-            .for (var y = 0; y < 8; y++) {  // Row in tile
-                .eval c = 0
-                .for (var x = 0; x < 8; x++) { // Bit in tile
-                    .var imgy = (floor(ch/imgwidth) * 8) + y
-                    .var imgx = (mod(ch,imgwidth) * 8) + x
-                    .var pixel = imgfile.uget(((imgy * imgwidth_px) + imgx) * gimpscale)
-                    .var bpldata = pixel & (1 << (1-plane))
-                    .eval c = c*2
-                    .if (bpldata == 0) {
-                        .eval c = (c | 1)
-                    }
-                }
-                .byte c
-            }
-        }
-    }
+bg_rom:
+    store_image(imgfile, imgwidth, imgheight, 2)
+    .print (*-bg_rom)/16
+
     .fill 4096-(*-bg_rom),0
 
 
