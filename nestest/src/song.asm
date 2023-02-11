@@ -41,3 +41,5 @@ tria:
         .byte 29,nn,oo,oo,oo,oo,23,nn
         .byte oo,nn,nn,nn,nn,nn,nn,nn
     }
+noise:
+    .fill 32,[nn,nn,nn,nn,50,nn,oo,nn]

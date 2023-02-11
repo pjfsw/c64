@@ -155,42 +155,44 @@ reset:
 
 nmi:
     ldx beat
-    bne !+
+    beq !play_notes+
+    jmp !+
+!play_notes:
+
     {
-        .var noteoff = List().add(%10110100,%11110010,$80)
-        .var noteon = List().add(%10111000,%11110101,$c0)
-        .for (var i = 0; i < 3; i++) {
+        .var noteoff = List().add(%10110100,%11110010,$80, $00)
+        .var noteon = List().add(%10111000,%11110101,$c0, $3f)
+        .for (var i = 0; i < 4; i++) {
             ldx songpos
             lda tune+i*256,x
             beq !next_channel+
             bpl !+
-            .if (i < 2) {
-                //lda #%10110100
-                lda #noteoff.get(i)
-                sta $4000 + i*4
-            } else {
-                lda #$80
-                sta $4008
-            }
+            lda #noteoff.get(i)
+            sta $4000 + i*4
             jmp !next_channel+
         !:
             tax
 
-            lda freq_lo,x
-            sta $4002 + i*4
-            lda freq_hi,x
-            sta $4003 + i*4
-
-            .if (i < 2) {
-                // Pulse
-                //lda #%10111000
-                lda #noteon.get(i)
-                sta $4000 + i*4
+            .if (i == 3) {
+                // Noise
+                lda #$0c
+                sta $4002 + i*4
             } else {
+                lda freq_lo,x
+                sta $4002 + i*4
+                lda freq_hi,x
+                sta $4003 + i*4
+            }
+
+            .if (i == 2) {
                 // Triangle
                 lda #%11000000
                 sta $4000 + i*4
                 sta $4017
+            } else {
+                // Pulse
+                lda #noteon.get(i)
+                sta $4000 + i*4
             }
         !next_channel:
         }
