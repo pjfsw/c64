@@ -238,7 +238,10 @@ background_data:
         }
         .fill pad_right,255
     }
-    .fill 1024-(*-background_data),255
+    .byte 255,252,253,254
+
+    .fill 960-(*-background_data),255
+
 }
     *=$0300 "Variables" virtual
 sinpos:
@@ -277,6 +280,40 @@ chr_rom_start:
 
 bg_rom:
     store_image(imgfile, imgwidth, imgheight, 2)
+
+    .for (var i = 0; i < 2; i++) {
+        .byte %00010000
+        .byte %00010000
+        .byte %00010000
+        .byte %00010011
+        .byte %00010100
+        .byte %10010100
+        .byte %01100011
+        .byte %00000000
+    }
+
+    .for (var i = 0; i < 2; i++) {
+        .byte %00100000
+        .byte %00100000
+        .byte %00100000
+        .byte %00111000
+        .byte %10100101
+        .byte %10100101
+        .byte %00100101
+        .byte %00000000
+    }
+
+    .for (var i = 0 ;i < 2; i++) {
+        .byte %00000000
+        .byte %00000000
+        .byte %00000000
+        .byte %11101110
+        .byte %00101001
+        .byte %00101001
+        .byte %11101001
+        .byte %00000000
+    }
+
     .print (*-bg_rom)/16
 
     .fill 4096-(*-bg_rom),0
