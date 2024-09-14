@@ -154,11 +154,28 @@ reset:
     jmp *
 
 nmi:
-    ldx beat
-    beq !play_notes+
-    jmp !+
+    jsr play_song
+    jsr draw_sprites
+    rti
 
-!play_notes:
+play_song:
+    ldx beat
+    bne !+
+    jsr play_notes
+!:
+    lda drums,x
+    ora #$10    // constant volume
+    sta $400c
+    lda #$03    // noise period
+    sta $400e
+    lda #$ff    // ????
+    sta $400f
+
+    dex
+    stx beat
+    rts
+
+play_notes:
     {
         .var noteoff = List().add(%10110100,%11110010,$80)
         .var noteon = List().add(%10111000,%11110101,$c0)
@@ -194,10 +211,12 @@ nmi:
 
         ldx #5
     }
-!:
-    dex
-    stx beat
+    rts
 
+drums:
+    .byte 0,0,1,2,4,15
+
+draw_sprites:
     ldx sinpos
     inx
     stx sinpos
@@ -340,6 +359,8 @@ background_data:
 sinpos:
     .byte 0
 beat:
+    .byte 0
+fade:
     .byte 0
 songpos:
     .byte 0
